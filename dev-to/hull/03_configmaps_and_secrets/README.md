@@ -1105,10 +1105,9 @@ These are the key differences to notice:
 - `<<<` and `>>>` signal the start and end of parameters to a `_HULL_TRANFORMATION_`. These character sequences are currently forbidden within any parameter values!
 - access to the Helm charts global context is done via the expression `(index . \"PARENT\")` instead of just `$`. This is a technical implication. If you require multiple accesses to the context you can however simply put something like 
 
-```yaml
-{{ $p := (index . \"PARENT\") }}
-``` 
-
+    ```yaml
+    {{ $p := (index . \"PARENT\") }}
+    ```
     at the top of your `tpl` block and thus use `$p` instead of `(index . \"PARENT\")` for convenience. 
 - additionally within the CONTENT block all `"` 's need to be escaped like `\"`. 
 
