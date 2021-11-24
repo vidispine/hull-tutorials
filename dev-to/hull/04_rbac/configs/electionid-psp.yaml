@@ -1,0 +1,8 @@
+hull:
+  config:
+    specific:
+      controller:
+        electionID: another-id
+        existingPsp: usable-psp
+      podSecurityPolicy:
+        enabled: true

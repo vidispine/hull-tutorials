@@ -1,0 +1,25 @@
+hull:    
+  objects:
+    serviceaccount: 
+      default:
+        enabled: false
+      other_sa:
+        staticName: true       
+        automountServiceAccountToken: true
+    role: 
+      default:
+        enabled: false
+    rolebinding: 
+      default:
+        enabled: false
+    deployment:
+      controller:
+        pod:
+          containers:
+            controller:
+              image:
+                registry: k8s.gcr.io
+                repository: ingress-nginx/controller
+                tag: "v1.0.4"
+          serviceAccountName: other_sa
+

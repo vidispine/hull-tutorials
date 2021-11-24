@@ -1,0 +1,10 @@
+hull:
+  objects:
+    configmap:
+      addheaders:
+        data: 
+          header1: 
+            inline: This is a first header
+          header2: 
+            inline: This is a second header
+

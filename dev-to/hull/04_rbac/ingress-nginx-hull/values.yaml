@@ -1,0 +1,311 @@
+hull:
+  config:
+    specific:
+      rbac:
+        scope: false
+      defaultBackend:
+        enabled: false
+        existingPsp:
+      controller:
+        scope:
+          enabled: false
+          namespace: ""
+        admissionWebhooks:
+          enabled: true
+          existingPsp:
+          patch:
+            enabled: true
+        configMaps:
+          tcp:
+            mappings: {}
+          udp:
+            mappings: {}
+        electionID: ingress-controller-leader
+        existingPsp: 
+      podSecurityPolicy:
+        enabled: false
+  objects:
+    role:
+      default:
+        rules:
+          namespaces:
+            apiGroups:
+            - ""
+            resources:
+            - namespaces
+            verbs:
+            - get
+          core:
+            apiGroups:
+            - ""
+            resources:
+            - configmaps
+            - pods
+            - secrets
+            - endpoints
+            verbs:
+            - get
+            - list
+            - watch
+          services:
+            apiGroups:
+            - ""
+            resources:
+            - services
+            verbs:
+            - get
+            - list
+            - watch
+          ingresses:
+            apiGroups:
+            - networking.k8s.io
+            resources:
+            - ingresses
+            verbs:
+            - get
+            - list
+            - watch
+          ingress_status:
+            apiGroups:
+            - networking.k8s.io
+            resources:
+            - ingresses/status
+            verbs:
+            - update
+          ingress_classes:
+            apiGroups:
+            - networking.k8s.io
+            resources:
+            - ingressclasses
+            verbs:
+            - get
+            - list
+            - watch
+          electionid:
+            apiGroups:
+            - ""
+            resources:
+            - configmaps
+            resourceNames:
+            - _HT![ {{ (index . "$").Values.hull.config.specific.controller.electionID }} ]
+            verbs:
+            - get
+            - update
+          configmaps:
+            apiGroups:
+            - ""
+            resources:
+            - configmaps
+            verbs:
+            - create
+          events:
+            apiGroups:
+            - ""
+            resources:
+            - events
+            verbs:
+            - create
+            - patch
+          psp:
+            enabled: _HT?(index . "$").Values.hull.config.specific.podSecurityPolicy.enabled
+            apiGroups:      
+            - policy
+            resources:      
+            - podsecuritypolicies
+            verbs:
+            - use
+            resourceNames:
+            - _HT![ {{ default (include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "controller")) (index . "$").Values.hull.config.specific.controller.existingPsp }} ]
+      defaultbackend:
+        enabled: _HT?(and (index . "$").Values.hull.config.specific.defaultBackend.enabled (index . "$").Values.hull.config.specific.podSecurityPolicy.enabled)
+        rules:
+          psp:
+            apiGroups:
+            - policy
+            resources:
+            - podsecuritypolicies
+            verbs:
+            - use
+            resourceNames:
+            - _HT!
+                [ {{ default (include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "defaultbackend")) (index . "$").Values.hull.config.specific.defaultBackend.existingPsp }} ]
+      admission:
+        enabled: _HT?(and (index . "$").Values.hull.config.specific.controller.admissionWebhooks.enabled (index . "$").Values.hull.config.specific.controller.admissionWebhooks.patch.enabled)
+        annotations:
+          "helm.sh/hook": pre-install,pre-upgrade,post-install,post-upgrade
+          "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+        rules:
+          psp:
+            apiGroups:
+            - ""
+            resources:
+            - secrets
+            verbs:
+            - get
+            - create
+    serviceaccount:
+      defaultbackend:  
+        enabled: _HT?(index . "$").Values.hull.config.specific.defaultBackend.enabled
+      admission:
+        enabled: _HT?(and (index . "$").Values.hull.config.specific.controller.admissionWebhooks.enabled (index . "$").Values.hull.config.specific.controller.admissionWebhooks.patch.enabled)
+        annotations:
+          "helm.sh/hook": pre-install,pre-upgrade,post-install,post-upgrade
+          "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    rolebinding:
+      defaultbackend:
+        enabled: _HT?(and (index . "$").Values.hull.config.specific.defaultBackend.enabled (index . "$").Values.hull.config.specific.podSecurityPolicy.enabled)
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: Role
+          name: _HT^defaultbackend
+        subjects:
+        - namespace: _HT!{{ (index . "$").Release.Namespace }}
+          kind: ServiceAccount
+          name: _HT^defaultbackend
+      admission:
+        enabled: _HT?(and (index . "$").Values.hull.config.specific.controller.admissionWebhooks.enabled (index . "$").Values.hull.config.specific.controller.admissionWebhooks.patch.enabled)
+        annotations:
+          "helm.sh/hook": pre-install,pre-upgrade,post-install,post-upgrade
+          "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: Role
+          name: _HT^admission
+        subjects:
+        - namespace: _HT!{{ (index . "$").Release.Namespace }}
+          kind: ServiceAccount
+          name: _HT^admission
+
+    clusterrolebinding:
+      default:
+        enabled: _HT?(not (index . "$").Values.hull.config.specific.rbac.scoped)
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: _HT^default
+        subjects:
+        - namespace: _HT!{{ (index . "$").Release.Namespace }}
+          kind: ServiceAccount
+          name: _HT^default
+      admission:
+        enabled: _HT?(and (index . "$").Values.hull.config.specific.controller.admissionWebhooks.enabled (index . "$").Values.hull.config.specific.controller.admissionWebhooks.patch.enabled)
+        annotations:
+          "helm.sh/hook": pre-install,pre-upgrade,post-install,post-upgrade
+          "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: _HT^admission
+        subjects:
+        - namespace: _HT!{{ (index . "$").Release.Namespace }}
+          kind: ServiceAccount
+          name: _HT^admission
+    clusterrole:
+      default:
+        enabled: _HT?(not (index . "$").Values.hull.config.specific.rbac.scoped)
+        rules:
+          core:
+            apiGroups:
+            - ""
+            resources:
+            - configmaps
+            - endpoints
+            - nodes
+            - pods
+            - secrets
+            verbs:
+            - list
+            - watch
+          namespace:
+            enabled: _HT?(and (index . "$").Values.hull.config.specific.controller.scope.enabled (index . "$").Values.hull.config.specific.controller.scope.namespace)
+            apiGroups:
+            - ""
+            resources:
+            - namespaces
+            resourceNames: 
+            - _HT![ {{ (index . "$").Release.Namespace }} ]
+            verbs:
+            - get
+          nodes:
+            apiGroups:
+            - ""
+            resources:
+            - nodes
+            verbs:
+            - get
+          services:
+            apiGroups:
+            - ""
+            resources:
+            - services
+            verbs:
+            - get
+            - list
+            - watch
+          ingresses:
+            apiGroups:
+            - networking.k8s.io
+            resources:
+            - ingresses
+            verbs:
+            - get
+            - list
+            - watch
+          ingress_status:
+            apiGroups:
+            - networking.k8s.io
+            resources:
+            - ingresses/status
+            verbs:
+            - update
+          ingress_classes:
+            apiGroups:
+            - networking.k8s.io
+            resources:
+            - ingressclasses
+            verbs:
+            - get
+            - list
+            - watch
+          electionid:
+            apiGroups:
+            - ""
+            resources:
+            - configmaps
+            resourceNames:
+            - _HT![ {{ (index . "$").Values.hull.config.specific.controller.electionID }} ]
+            verbs:
+            - get
+            - update
+          events:
+            apiGroups:
+            - ""
+            resources:
+            - events
+            verbs:
+            - create
+            - patch
+      admission:
+        enabled: _HT?(and (index . "$").Values.hull.config.specific.controller.admissionWebhooks.enabled (index . "$").Values.hull.config.specific.controller.admissionWebhooks.patch.enabled)
+        annotations:
+          "helm.sh/hook": pre-install,pre-upgrade,post-install,post-upgrade
+          "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+        rules:
+          admission:
+            apiGroups:      
+            - admissionregistration.k8s.io
+            resources:      
+            - validatingwebhookconfigurations
+            verbs:
+            - get
+            - update
+          psp:
+            enabled: _HT?(index . "$").Values.hull.config.specific.podSecurityPolicy.enabled
+            apiGroups:      
+            - extensions
+            resources:      
+            - podsecuritypolicies
+            verbs:
+            - use
+            resourceNames:
+            - _HT![ {{ default (include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "controller")) (index . "$").Values.hull.config.specific.controller.admissionWebhooks.existingPsp }} ]
