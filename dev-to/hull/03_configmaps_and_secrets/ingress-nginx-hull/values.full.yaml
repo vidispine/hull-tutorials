@@ -16,25 +16,21 @@ hull:
         enabled: _HT?(index . "$").Values.hull.objects.configmap.proxyheaders.data
         data: {}
       tcp:
-        enabled: _HT?(index . "$").Values.hull.config.specific.controller.configMaps.tcp.mappings 
-        data: 
-          _HT!: 
-            "_": |- 
-              {
-                {{ range $key,$value :=  (index . "$").Values.hull.config.specific.controller.configMaps.tcp.mappings }}
-                {{ $key }}: { inline: {{ $value }} },
-                {{ end }}
-              }
+        enabled: _HT?(index . "$").Values.hull.config.specific.controller.configMaps.tcp.mappings
+        data: |-
+          _HT!{
+            {{ range $key,$value :=  (index . "$").Values.hull.config.specific.controller.configMaps.tcp.mappings }}
+            {{ $key }}: { inline: {{ $value }} },
+            {{ end }}
+          }
       udp:
         enabled: _HT?(index . "$").Values.hull.config.specific.controller.configMaps.udp.mappings
-        data:
-          _HT!: 
-            "_": |-  
-              {
-                {{ range $key,$value :=  (index . "$").Values.hull.config.specific.controller.configMaps.udp.mappings }}
-                {{ $key }}: { inline: {{ $value }} },
-                {{ end }}
-              }
+        data: |-
+          _HT!{
+            {{ range $key,$value :=  (index . "$").Values.hull.config.specific.controller.configMaps.udp.mappings }}
+            {{ $key }}: { inline: {{ $value }} },
+            {{ end }}
+          }
       controller:
         data:
           add-headers:
@@ -50,7 +46,6 @@ hull:
             inline: _HT!{{ (index (index . "$").Values.hull.objects.secret.dhparam.data "dhparam.pem").inline }}
     secret:
       dhparam:
-        enabled: _HT?(index (index . "$").Values.hull.objects.secret.dhparam.data "dhparam.pem")
+        enabled: _HT?(index (index . "$").Values.hull.objects.secret.dhparam.data "dhparam.pem").inline
         data: 
           dhparam.pem: {}
-             

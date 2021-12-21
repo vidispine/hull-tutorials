@@ -1,11 +1,11 @@
-## The Goal
+## Introduction
 
-This article series will go step by step through building a Helm Chart based on the HULL library. To allow a good comparison with the traditional Helm chart creation process and for educational purposes the goal is to rewrite the `ingress-nginx` Helm chart in it's latest version that exists at time of writing ([which is version 4.0.6](https://artifacthub.io/packages/helm/ingress-nginx/ingress-nginx/4.0.6)). 
+This article series will go step by step through building a Helm Chart based on the HULL library. To allow a good comparison with the traditional Helm chart creation process and for educational purposes the goal is to rewrite the `ingress-nginx` Helm chart in it's latest version that exists at time of writing ([which is version 4.0.6](https://artifacthub.io/packages/helm/ingress-nginx/ingress-nginx/4.0.6)). 
 
 You may ask why the `ingress-nginx` Helm chart? For a number of reasons this is an interesing topic for this tutorial: 
 - the `nginx-ingress` Helm chart is most likely one of the most frequently downloaded and used Helm chart around the globe. Many people interact with it daily and may have a deeper understanding of its structure
 - it has a medium to high complexity which makes the goal of translating it to a HULL based chart not trivial and has the power of showcasing the real-life applicability of the HULL library to Helm chart creation 
-- lastly, a deep dive into such a more complex Helm Chart may still offer interesting insights to you if you are newish to understanding Helm chart per se or want to understand the `ingress-nginx`'s particular charts architecture better.
+- lastly, a deep dive into such a more complex Helm Chart may still offer interesting insights to you if you are new-ish to understanding Helm chart mechanics or want to get to learn the `ingress-nginx`'s particular charts architecture better.
 
 ## Getting Helm
 
@@ -35,7 +35,7 @@ $ cd ~
 and there create a directory for our first tutorial part and switch to it:
 
 ```bash
-$ mkdir 01_setup && cd 01_setup
+$ mkdir 02_setup && cd 02_setup
 ```
  
 ## Getting the original `ingress-nginx` chart
@@ -108,6 +108,9 @@ One way to get started is by using the `helm create` command to create the folde
 ```bash
 $ helm create ingress-nginx-hull
 ```
+
+should produce this answer: 
+
 ```yaml
 Creating ingress-nginx-hull
 ```
@@ -157,12 +160,12 @@ $ echo '' > values.yaml
 ```
 
 Now edit the mandatory `Chart.yaml` which is updated to reflect the original charts information. Furthermore add the HULL library as requirement which is necessary to be able to use HULL.
- 
-## Choosing a HULL version
+
+### Choosing a HULL version
 
 When choosing a HULL version for this, it is recommended that HULLs `major.minor` version must at least match the `kubeVersion` field otherwise the API version of objects created by HULL may be yet unknown to the clusters API version. Each HULL release branch is aligned with a specific Kubernetes version such as `1.20`, `1.21`, `1.22` and so on. The objects that HULL renders out will always be of the latest API version of the given object type that matches the HULL librarys version. So when an API is upgraded from beta to stable in a Kubernetes version jump, the latter HULL version will create objects with the stable API version and the former will create the beta API versioned objects. It is recommended to leave the `kubeVersion` set at `1.20.0` for this example so you will be able to work against any Kubernetes cluster with a version of `1.20.0` or above.
 
-Replace `1.22.8` below with the latest available HULL version (more on versioning in a later article) and match the `kubeVersion` accordingly:
+Replace `1.22.11` below with the latest available HULL version (more on versioning in a later article) and match the `kubeVersion` accordingly:
 
 ```bash
 $ echo 'apiVersion: v2
@@ -183,12 +186,17 @@ type: application
 version: 4.0.6
 dependencies:
 - name: hull
-  version: "1.22.8"
+  version: "1.22.11"
   repository: "https://vidispine.github.io/hull"' > Chart.yaml
 ```
+
+Verify it was written correctly:
 ```bash
 $ cat Chart.yaml
 ```
+
+returns:
+
 ```yaml
 apiVersion: v2
 appVersion: 1.0.4
@@ -208,7 +216,7 @@ type: application
 version: 4.0.6
 dependencies:
 - name: hull
-  version: "1.22.8"
+  version: "1.22.10"
   repository: "https://vidispine.github.io/hull"
 ```
 
@@ -217,6 +225,8 @@ Before starting work on the `values.yaml` you should download the HULL library b
 ```bash
 $ helm dependency update
 ```
+
+to download the HULL chart from the GitHub hosted HelmChart repository:
 ```yaml
 Getting updates for unmanaged Helm repositories...
 ...Successfully got an update from the "https://vidispine.github.io/hull" chart repository
@@ -228,8 +238,11 @@ Deleting outdated charts
 Great, one tiny thing left before you can start defining the objects of our `ingress-nginx-hull` Chart: copy over the `hull.yaml` from the now locally downloaded subchart to the main charts template folder. Without this step, nothing can be rendered via HULL since the `hull.yaml` contains the logic to convert `values.yaml` object definitions to rendered YAML files. We can do this with a one-liner where we extract the packaged HULL tgz file from the `/charts` directory to a local `temp` directory, copy over the `hull.yaml` and clean up the temp directory afterwards:
 
 ```bash
-$ mkdir _tmp && tar -xvzf charts/hull-1.22.6.tgz -C _tmp && cp _tmp/hull/hull.yaml templates/hull.yaml && rm -rf _tmp
+$ mkdir _tmp && tar -xvzf charts/hull-1.22.11.tgz -C _tmp && cp _tmp/hull/hull.yaml templates/hull.yaml && rm -rf _tmp
 ```
+
+prints out the extracted files:
+
 ```yaml
 hull/Chart.yaml
 hull/Chart.lock
@@ -282,14 +295,18 @@ hull/files/scripts/SetYamlValues.ps1
 hull/hull.yaml
 ```
 
+Now check if the `hull.yaml` was copied correctly to the `templates` folder:
 ```bash
 $ ls templates
 ```
+
+should show:
+
 ```yaml
 hull.yaml
 ```
 
-## Inspecting default RBAC settings in a HULL based chart
+### Inspecting default RBAC settings
 
 Fantastic, all in place! If everything went right up to here you can take a first look at what HULL does by default in an otherwise unconfigured Helm chart. For this you can have Helm render out the YAMLs to `stdout` where you can study them instead of directly deploying objects to a cluster. `helm template` is the command used for this rendering out:
 
@@ -359,10 +376,13 @@ There is already a lot you can see from this output. One thing you may ask is: w
 
 This is like a RBAC bootstrap you can build upon easily but you may have different needs so if this setup does not fit your usecase, you can disable this default set of RBAC objects and specify different RBAC objects more tailored to your needs. 
 
-Additionally, while using RBAC is the default with HULL you can also optionally turn off the rendering of RBAC objects all together if that is what you want (of course not recommended :)).
+Additionally, while using RBAC is the default with HULL you can also optionally turn off the rendering of RBAC objects all together if that is what you want (of course not recommended :) ).
+
+### Inspecting the autogenerated metadata
 
 Another standout aspect here is the autogenerated metadata for all objects which adheres to the [best practice Kubernetes metadata definition](https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/) and [Helm's recommendation on the subject matter](https://helm.sh/docs/chart_best_practices/labels/#standard-labels). Using HULL you get this default metadata created without you having to do anything and on top of this it is easy to [enrich all objects or objects of a particular type or just individual objects with metadata even further](https://github.com/vidispine/hull/tree/main/hull#advanced-example). 
 
-That's it for Part 2, in Part 3 looks at ConfigMaps and Secrets and you will add your first custom objects to the `ingress-nginx-hull` Helm chart! You can check out the code created so far as the outcome of this Part 2 [here](https://github.com/vidispine/hull-tutorials/tree/test/dev-to/hull/02_setup).
+## Wrap up
+That's it for Part 2, in Part 3 looks at ConfigMaps and Secrets and you will add your first custom objects to the `ingress-nginx-hull` Helm chart! You can check out the complete code created so far as the outcome of this Part 2 [here](https://github.com/vidispine/hull-tutorials/tree/test/dev-to/hull/02_setup).
 
 Thanks for reading!

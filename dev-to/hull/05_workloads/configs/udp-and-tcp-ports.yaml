@@ -1,0 +1,11 @@
+hull:
+  config:
+    specific:
+      controller:
+        metrics:
+          enabled: true
+        configMaps:
+          tcp:
+            mappings:
+              "12345": some_tcp_service
+              "67890": some_udp_service

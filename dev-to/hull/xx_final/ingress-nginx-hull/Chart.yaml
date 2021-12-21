@@ -1,0 +1,20 @@
+apiVersion: v2
+appVersion: 1.0.4
+description: Ingress controller for Kubernetes using NGINX as a reverse proxy and load balancer (built using HULL)
+home: https://github.com/kubernetes/ingress-nginx
+icon: https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Nginx_logo.svg/500px-Nginx_logo.svg.png
+keywords:
+- ingress
+- nginx
+kubeVersion: ">=1.20.0-0"
+maintainers:
+- name: Me
+name: ingress-nginx-hull
+sources:
+- https://github.com/kubernetes/ingress-nginx
+type: application
+version: 4.0.6
+dependencies:
+- name: hull
+  version: "1.22.7"
+  repository: "https://vidispine.github.io/hull"

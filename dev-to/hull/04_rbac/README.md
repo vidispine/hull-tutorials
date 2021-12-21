@@ -1,17 +1,19 @@
-After the ConfigMaps and Secrets tutorial part this part will be used to look at the RBAC configuration side of `ingress-nginx`'s Helm chart and check how it is transportable to our new HULL based `ingress-nginx-hull` chart. 
+## Preparation
 
-Initially we copy over our working chart from the last tutorial part to a new folder in the same manner as we did before. Go to your working directory and execute:
+After the ConfigMaps and Secrets tutorial part this part will be used to look at the RBAC configuration side of `ingress-nginx`'s Helm chart and check how it is transportable to the new HULL based `ingress-nginx-hull` chart. 
+
+Initially you should copy over our working chart from the last tutorial part to a new folder in the same manner as we did before. Go to your working directory and execute:
 
 ```bash
 $ cp -R 03_configmaps_and_secrets/ 04_rbac && cd 04_rbac/ingress-nginx-hull
 ```
 
-From the `values.full.yaml`, the starting point for this tutorial part, only keep the `hull.config.specific` section for building upon in this chapter, the `hull.objects` section can be cleared for now since you will only add objects relevant to this tutorial section to it. At the end of this tutorial part the newly created objects and `hull.config.specific` properties are combined in the `values.intermediate.yaml` with what we already have created in which will then serve as the next tutorial parts starting point. 
+From the `values.full.yaml`, the starting point for this tutorial part, only keep the `hull.config.specific` section for building upon in this chapter, the `hull.objects` section can be cleared for now since you will only add objects relevant to this tutorial section to it. At the end of this tutorial part the newly created objects and `hull.config.specific` properties are added to the `values.full.yaml` with what we already have created. This in turn will then serve as the next tutorial parts starting point. 
 
-To delete the HULL objects from `values.yaml` type:
+To delete the HULL objects from `values.full.yaml` and copy the rest to the `values.yaml` type the following:
 
 ```bash
-$ sed -i '/  objects:/Q' values.yaml
+$ sed '/  objects:/Q' values.full.yaml > values.yaml
 ```
 
 and verify the result:
@@ -19,6 +21,8 @@ and verify the result:
 ```bash
 $ cat values.yaml
 ```
+
+to show only the `hull.config.specific` section: 
 
 ```yaml
 hull:
@@ -32,7 +36,7 @@ hull:
             mappings: {}
 ```
 
-Now you ar ready to proceed!
+Let's get started on ServiceAccount configuration and role based access control!
 
 ## Examining the existing RBAC objects
 
@@ -41,6 +45,9 @@ Execute the following command to first get an idea which RBAC objects are define
 ```bash
 $ find ../ingress-nginx/templates -type f -iregex '.*\(Role\|\role|\Account\|account\|rbac\|RBAC\).*' | sort
 ```
+
+which reveals them all:
+
 ```yaml
 ../ingress-nginx/templates/admission-webhooks/job-patch/clusterrole.yaml
 ../ingress-nginx/templates/admission-webhooks/job-patch/clusterrolebinding.yaml
@@ -64,6 +71,8 @@ First check the `controller` RBAC-related ServiceAccount, Role and RoleBinding o
 ```bash
 $ cat ../ingress-nginx/templates/controller-serviceaccount.yaml
 ```
+
+which is this:
 ```yaml
 {{- if or .Values.serviceAccount.create -}}
 apiVersion: v1
@@ -78,11 +87,14 @@ automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountT
 {{- end }}
 ```
 
-The actual creation of the ServiceAccount name is deferred to a helper function in `_helpers.tpl`:
+The actual creation of the ServiceAccount name is deferred to a helper function in `_helpers.tpl` which we look at in more detail:
 
 ```bash
 $ cat ../ingress-nginx/templates/_helpers.tpl | grep 'ingress-nginx\.serviceAccountName' -B 10 -A 10
 ```
+
+where the inherent logic becomes more apparent:
+
 ```yaml
 Selector labels
 */}}
@@ -106,11 +118,14 @@ Create the name of the backend service account to use - only used when podsecuri
 */}}
 ```
 
-Lastly check the `values.yaml` section dealing with the `serviceAccount` configuration:
+Lastly check the `values.yaml` section dealing with the `serviceAccount` configuration: 
 
 ```bash
 $ cat ../ingress-nginx/values.yaml | grep '^serviceAccount' -B 10 -A 10
 ```
+
+for completing our examination of the `controller`s ServiceAccount configuration:
+
 ```yaml
 ## Enable RBAC as per https://github.com/kubernetes/ingress-nginx/blob/main/docs/deploy/rbac.md and https://github.com/kubernetes/ingress-nginx/issues/266
 rbac:
@@ -135,13 +150,13 @@ Now you should have gathered an impression of the ServiceAccount configuration o
 
 ## Choosing ServiceAccounts for pods in HULL
 
-When breaking down the execution logic that creates the name of the ServiceAccount just examined, the following four variants chrystalize themselves (in _cursive_ the conditions that apply to each variant): 
+When breaking down the execution logic that creates the name of the ServiceAccount just examined, the following four variants can be distilled (in _cursive_ the conditions that apply to each variant): 
 
 1. create a new individual ServiceAccount for this chart named as the charts 'fullname' as `<release-name>-<chart-name>`.
 
     _Settingwise this is done by enabling `serviceAccount.create`  and not providing a `serviceAccount.name`)._ 
 
-    **This is the default in `ingress-nginx`'s `values.yaml`.**
+    > This is the default in `ingress-nginx`'s `values.yaml`.
 
 2. create a new individual ServiceAccount for this chart with a fixed provided name. 
 
@@ -149,17 +164,17 @@ When breaking down the execution logic that creates the name of the ServiceAccou
 
 3. use a given ServiceAccount with a fixed provided name. 
 
-    _For this choice set `serviceAccount.create` to `false` and prove the full `serviceAccount.name`_
+    _For this choice set `serviceAccount.create` to `false` and provide the full `serviceAccount.name` to use._
 
 4. use the Kubernetes default ServiceAccount simply named 'default'. 
 
-    _setting `serviceAccount.create` to `false` and not supplying a `serviceAccount.name` is required_
+    _setting `serviceAccount.create` to `false` and not supplying a `serviceAccount.name` has this result._
 
 Now within HULL the ServiceAccount for a pod is derived generally by the following rules:
 
-1. if no specific `serviceAccountName` is set on the pod it is checked whether `hull.objects.serviceaccount.default.enabled` is `true` (defaults to `true`) and if so the chart and release specific default ServiceAccount is being used named `<release-name>-<chart-name>-default`. A matching `default` Role and RoleBinding is also created by default.
+1. if no specific `serviceAccountName` is set on the pod it is checked whether `hull.objects.serviceaccount.default.enabled` is `true` (defaults to `true`) and if so the chart and release specific default ServiceAccount is being used named `<release-name>-<chart-name>-default`. A matching `default` Role and RoleBinding is also always created by default.
 
-    **This is the default in HULL's `values.yaml`**
+   > This is the default in HULL's `values.yaml`
 
 2. if a specific `serviceAccountName` was set on the pod it is used for that pod. Note that this field requires the full name to be set so in case you want to create and use a dynamically named ServiceAccount you need to use the fullname transformation (short form) from HULL to generate this name with `serviceAccountName: _HT^my-components-name` which would produce `serviceAccountName: <release-name>-<chart-name>-my-components-name` in the rendered output.
 
@@ -173,6 +188,7 @@ Using a test file named `../configs/default-sa.yaml` you can produce this defaul
 
 > Workloads such as the `controller` Deployment will be part of a later tutorial so you can only concentrate on the `serviceAccountName` property setting for now.
 
+Insert a first simple deployment with a pod's ServiceAccount to visualize the different variants:
 ```bash
 $ echo 'hull:
   objects:
@@ -188,11 +204,14 @@ $ echo 'hull:
 ' > ../configs/default-sa.yaml
 ```
 
-Apply and check:
+Apply:
 
 ```bash
 $ helm template -f ../configs/default-sa.yaml .
 ```
+
+and you'll see the the charts `default` ServiceAccount being used for the pod(s):
+
 ```yaml
 ---
 # Source: ingress-nginx-hull/templates/hull.yaml
@@ -293,13 +312,13 @@ spec:
       volumes: []
 ```
 
-As seen from the output, `serviceAccountName: release-name-ingress-nginx-hull-default` is used for the pod by default which is as intended. The `default` Role and RoleBindings are available for RBAC configuration. 
+So `serviceAccountName: release-name-ingress-nginx-hull-default` is used for the pod by default which is as intended. The `default` Role and RoleBindings are available for more detailed RBAC configuration of the `default` ServiceAccount in case you use RBAC. 
 
-The other original cases 2.-4. can be realized with HULL too by reconfiguring the chart at deploy time. 
+The other original cases 2.-4. can be realized with HULL too by reconfiguring the chart at deploy time and how to do so will be examined next.
 
 ### Using the Kubernetes 'default' ServiceAccount
 
-When setting `hull.objects.serviceaccount.default.enabled` to `false` and not setting any `serviceAccountName` on pods, the Kubernetes standard ('default') account is used for all pods (matching original case 4.). If you don't want to have or use the `default` ServiceAccount at all in your applications Helm Chart but still use RBAC it makes sense to disable the `default` Role and RoleBindings as well so they do not point at a nonexisting ServiceAccount. Here we explicitly disable them in the upcoming examples if we don't need them for the example. Also, if you don't use RBAC at all, disabling the `hull.config.specific.rbac` setting will also prevent rendering of Roles and RoleBindings.
+When setting `hull.objects.serviceaccount.default.enabled` to `false` and not setting any `serviceAccountName` on pods, the Kubernetes standard ('default') account is used for all pods (matching original case 4.). If you don't want to have or use the `default` ServiceAccount at all in your applications Helm Chart but still use RBAC it makes sense to disable the `default` Role and RoleBindings as well so they do not point at a nonexisting ServiceAccount. Here we explicitly disable them in the upcoming examples if we don't need them for the particular example so there will be less output to interpret. Also, if you don't use RBAC at all, disabling the `hull.config.specific.rbac` setting will also prevent rendering of all (Cluster)Roles and (Cluster)RoleBindings.
 
 Create a pod using the standard Kubernetes 'default' ServiceAccount like this:
 
@@ -332,6 +351,9 @@ Again check the result:
 ```bash
 $ helm template -f ../configs/k8s-default-sa.yaml .
 ```
+
+and you'll find that no `default` ServiceAccount, Role or RoleBinding was created and no ServiceAccount is set on the pod so the 'default' one from Kubernetes is applied as intended:
+
 ```yaml
 # Source: ingress-nginx-hull/templates/hull.yaml
 apiVersion: apps/v1
@@ -377,11 +399,9 @@ spec:
       volumes: []
 ```
 
-No `default` ServiceAccount, Role or RoleBinding was created and no ServiceAccount is set on the pod so the 'default' one from Kubernetes is applied as intended. 
-
 ### Using a ServiceAccount defined outside of Helm Chart
 
-To produce the original case 3 setting explicit `serviceAccountName`'s on individual pods does the trick. It is up to you if you want to set the `default` ServiceAccount, Role or RoleBinding to disabled but let's do it here since we don't plan on using them elsewhere in this example:
+To produce the original case 3 where an externally defined ServiceAccount is put to use, setting explicit `serviceAccountName`'s on individual pods does the trick. It is up to you if you want to set the `default` ServiceAccount, Role or RoleBinding to disabled but let's do it here since we don't plan on using them elsewhere in this example and we can reduce output:
 
 ```bash
 $ echo 'hull:
@@ -413,6 +433,9 @@ Observe the output:
 ```bash
 $ helm template -f ../configs/external-sa.yaml .
 ```
+
+yielding the result expected:
+
 ```yaml
 ---
 # Source: ingress-nginx-hull/templates/hull.yaml
@@ -460,13 +483,13 @@ spec:
       volumes: []
 ```
 
-The static name for the ServiceAccount was used. If you manage the ServiceAccounts outside of the Helm chart this is a typical scenario.
+The static name for the ServiceAccount was used. If you manage ServiceAccounts outside of the particular Helm chart this is a typical scenario.
 
 ### Using release specific non-default ServiceAccounts
 
-Last case to cover is case 2. To emulate this, setting `hull.objects.serviceaccount.default.enabled` to `false` and creating one or more ServiceAccounts for RBAC assignment with the desired names is required. 
+Last case to cover is case 2 where you may want to create one or more ServiceAccounts with the Helm chart release but intend to not use the `default` ServiceAccount anywhere. To emulate this, setting `hull.objects.serviceaccount.default.enabled` to `false` and creating one or more ServiceAccounts for RBAC assignment with the desired names is required. 
 
-In terms of choosing the name for a ServiceAccount to be created and used in the pod spec there are two choices which are both coverable by HULL:
+In terms of choosing the name for a ServiceAccount to be created and used in the pod spec there are two choices which are both covered by HULL. You may opt for creating ServiceAccount(s) with unique names that are release associated by naming or for creating ServiceAccount(s) with the exact names you want.
 
 #### Specifying unique and non-default dynamic ServiceAccounts
 
@@ -498,9 +521,15 @@ $ echo 'hull:
           serviceAccountName: _HT^other_sa
 ' > ../configs/internal-dynamic-sa.yaml
 ``` 
+
+where when applied: 
+
 ```bash
 $ helm template -f ../configs/internal-dynamic-sa.yaml .
 ```
+
+another short formed transformation `_HT^` is used to create the release specific name with a given suffix (here `other_sa`):
+
 ```yaml
 ---
 # Source: ingress-nginx-hull/templates/hull.yaml
@@ -568,10 +597,10 @@ As you can see the name of the created ServiceAccount `name: release-name-ingres
 
 #### Specifying non-default static ServiceAccounts
 
-The other alternative is to create a completely static ServiceAccount name (without the `<chart-name>-<release-name>-` prefix) and use this for the pod(s). For this you do not need the `makefullname` transformation of the pods `serviceAccountName` but just add the `staticName: true` property to the ServiceAccount object:
+The other alternative is to create a completely static ServiceAccount name (without the `<chart-name>-<release-name>-` prefix) and use this for the pod(s). For this you do not need the `makefullname`/`_HT^` transformation of the pods `serviceAccountName` to use the name as is but you additionally need add the `staticName: true` property to the ServiceAccount objects definition:
 
 ```bash
-$ echo 'hull:    
+$ echo 'hull:
   objects:
     serviceaccount: 
       default:
@@ -603,6 +632,9 @@ Check the result:
 ```bash
 $ helm template -f ../configs/internal-static-sa.yaml .
 ```
+
+and find the statically named ServiceAccount configured for the pod:
+
 ```yaml
 ---
 # Source: ingress-nginx-hull/templates/hull.yaml
@@ -666,13 +698,13 @@ spec:
       volumes: []
 ```
 
-> The caveat to this approach is that you may need to choose carefully which name to create because it may already exist in the namespace as opposed to sticking with dynamic names only so that names are highly unique. If you choose a static name that already exists in the namespace that will cause an error at deploy time!
+> The caveat to this approach is that you may need to choose carefully which name to create because it may already exist in the namespace as opposed to sticking with dynamic names only where object names are highly unique. If you choose a static name that already exists in the namespace that will cause problems at deploy time!
 
 Except for the default case of creating a dynamic and unique default ServiceAccount, the other ServiceAccount handling cases require little additional configuration. However, the HULL based configuration is transparent, explicit and flexible if special needs exist and the full flexibility of ServiceAccount management is needed to adapt to a given scenario. Otherwise providing pre-defined RBAC objects for the `default` ServiceAccount and using this ServiceAccount in the pods is likely enough for smaller application deployments.
 
 ## Defining a RoleBinding
 
-Next up is adding more RBAC objects to the mix: the `controller` RoleBinding:
+Next up is adding more RBAC objects to the mix in form of the `controller` RoleBinding:
 
 ```bash
 $ cat ../ingress-nginx/templates/controller-rolebinding.yaml
@@ -738,6 +770,9 @@ Now for the `controller`'s Role:
 ```bash
 $ cat ../ingress-nginx/templates/controller-role.yaml
 ```
+
+which returns:
+
 ```yaml
 {{- if .Values.rbac.create -}}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -831,7 +866,7 @@ rules:
 {{- end }}
 ```
 
-The `default` Role that comes with HULL can be used for this in the standard scenario but needs adding of the specific `rules:` required. There are two interesting aspects about the given `rules:` section displayed above, namely the reference to `controller.electionID`:
+The `default` Role that comes with HULL can be used for this in the standard scenario but needs the additional specific `rules:` shown. There are two interesting aspects about the given `rules:` section displayed above, namely the reference to `controller.electionID`:
 
 ```yaml
 - apiGroups:
@@ -865,6 +900,9 @@ A search reveals that the `controller.electionID` defaults to value `ingress-con
 ```bash
 $ find ../ingress-nginx -type f -print | xargs grep "electionID"
 ```
+
+delivers three references to the `values.yaml` source:
+
 ```yaml
 ../ingress-nginx/templates/controller-role.yaml:      - {{ .Values.controller.electionID }}
 ../ingress-nginx/templates/controller-deployment.yaml:            - --election-id={{ .Values.controller.electionID }}
@@ -874,13 +912,13 @@ $ find ../ingress-nginx -type f -print | xargs grep "electionID"
 
 To define a common source for this field to which to reference to from the multiple places it's being used you should again use the HULL configuration section that is intended for this: `hull.config.specific`. There you can create a field named `hull.config.specific.controller.electionID` and reference to it from the `rules:` section (and later in the `controller` containers `args:`). You can do that in a minute but first the PodSecurityPolicy part needs modelling. 
 
-There are two ways to approach the PodSecurityPolicy part modeling: either write out the complete `rules` section via a `tpl` transformation or define the individual rules in a key value style allowing the chart user to easily manipulate individual entries. As it was already shown how to create a complete dictionary using the `tpl` transformation this time you use the HULL key-value based approach.
+There are two ways to approach the PodSecurityPolicy part modeling: either write out the complete `rules` section via a `tpl` transformation or define the individual rules in a key value style allowing the chart user to easily manipulate individual entries. As it was already shown how to create a complete dictionary using the `tpl` transformation this time you should use the HULL key-value based approach.
 
 ## Using a key-value approach to HULL based properties
 
 Many HULL based properties which overwrite defined standard Kubernetes properties were written to allow a key value definition on the HULL side that are converted to arrays on the Kubernetes side. The advantage for particular selected fields is that it becomes possible to address and overwrite individual array items using Helm, something that is otherwise not possible via Helm when working on arrays. Kubernetes itself offers merging capabilities for individual array items but Helm does generally not support this. In case an array requires modification at deploy time it normally needs to be redefined in its entirety which requires a lookup on what the default array state is in a charts `values.yaml`. 
 
-Now the `rules` array in the `role` objects is such a HULL handled property and hence we can put a key to the individual entries that makes them targetable for selected modification. Write out the `rules` for the `default` Role in the key value style like this, already adding the needed `hull.config.specific` properties:
+Now the `rules` array in the `role` objects is such a HULL handled property and hence you can put a key to the individual entries that makes them targetable for selected modification. Write out the `rules` for the `default` Role in the key value style like this, already adding the needed `hull.config.specific` properties:
 
 ```bash
 $ echo '        electionID: ingress-controller-leader
@@ -971,17 +1009,16 @@ $ echo '        electionID: ingress-controller-leader
             - patch
           psp:
             enabled: _HT?(index . "$").Values.hull.config.specific.podSecurityPolicy.enabled
-            apiGroups:      
+            apiGroups:
             - policy
-            resources:      
+            resources:
             - podsecuritypolicies
             verbs:
             - use
-            resourceNames:
-            - _HT![ {{ default (include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "controller")) (index . "$").Values.hull.config.specific.controller.existingPsp }} ]' >> values.yaml
+            resourceNames: _HT![ {{ default (include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "controller")) (index . "$").Values.hull.config.specific.controller.existingPsp }} ]' >> values.yaml
 ```
 
-To perform a sanity check you can use this external config to test the behavior when the `electionID` changes and `podSecurityPolicy` is enabled:
+To perform a sanity check you can use create external config to test the behavior when the `electionID` changes and `podSecurityPolicy` is enabled:
 
 ```bash
 $ echo 'hull:
@@ -993,9 +1030,15 @@ $ echo 'hull:
       podSecurityPolicy:
         enabled: true' > ../configs/electionid-psp.yaml
 ```
+
+and test it:
+
 ```bash
 $ helm template -f ../configs/electionid-psp.yaml .
 ```
+
+resulting in:
+
 ```yaml
 ---
 # Source: ingress-nginx-hull/templates/hull.yaml
@@ -1131,13 +1174,16 @@ subjects:
 
 The result looks as expected from the applied configuration.
 
-Now that you have covered the typical ServiceAccount, Role and RoleBinding trinity for the `controller` component, it is time to work on the  `default-backend` and `admission-webhooks/job-patch` RBAC components and ServiceAccounts:
+Now that you have covered the typical ServiceAccount, Role and RoleBinding trinity for the `controller` component, it is time to look at the  `default-backend` and `admission-webhooks/job-patch` RBAC components and ServiceAccounts:
 
 Here is the `default-backend` ServiceAccount:
 
 ```bash
 $ cat ../ingress-nginx/templates/default-backend-serviceaccount.yaml
 ```
+
+with this content:
+
 ```yaml
 {{- if and .Values.defaultBackend.enabled  .Values.defaultBackend.serviceAccount.create -}}
 apiVersion: v1
@@ -1152,11 +1198,14 @@ automountServiceAccountToken: {{ .Values.defaultBackend.serviceAccount.automount
 {{- end }}
 ```
 
-and the RoleBinding:
+The RoleBinding:
 
 ```bash
 $ cat ../ingress-nginx/templates/default-backend-rolebinding.yaml
 ```
+
+is also pretty simplistic:
+
 ```yaml
 {{- if and .Values.rbac.create .Values.podSecurityPolicy.enabled .Values.defaultBackend.enabled -}}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1178,11 +1227,14 @@ subjects:
 {{- end }}
 ```
 
-and the Role:
+Lastly the Role:
 
 ```bash
 $ cat ../ingress-nginx/templates/default-backend-role.yaml
 ```
+
+is also not very complicated to understand:
+
 ```yaml
 {{- if and .Values.rbac.create .Values.podSecurityPolicy.enabled .Values.defaultBackend.enabled -}}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1205,19 +1257,22 @@ rules:
 {{- end }}
 ```
 
-All in all you can see it is very similar content as in the `controller` case but with some differences:
+All in all you can see it is much less but similar content as with the `controller` objects but with some differences:
 
-- a global option `defaultBackend.enable` to not create any objects associated with the 'defaultBackend'
+- a global option `defaultBackend.enable` is signaling to create or not create any objects associated with the `defaultbackend`
 
-- an additional dependency on a global `podSecurityPolicy.enabled` condition for creating the Role and RoleBinding
+- an additional dependency on a global `podSecurityPolicy.enabled` condition for creating the Role and RoleBinding exists
 
-In terms of the ServiceAccount management the options are those already explained. The chart user can decide to use an existing ServiceAccount or create one to be used in this Helm Chart. It seems feasible however to model the default behavior expressed in our new chart by having a global switch to disable the `default-backend` objects and create the default ServiceAccount, Role and RoleBinding for the `defaultBackend` if it isn't disabled.
+In terms of the ServiceAccount management the options are those already explained. The chart user can decide to use an existing ServiceAccount or create one to be used in this Helm Chart. It seems feasible however to model the default behavior expressed in our new chart by having a global switch to disable the `defaultbackend` objects and create the default ServiceAccount, Role and RoleBinding for the `defaultBackend` if it isn't disabled.
 
 Now examine the `admission-webhooks/job-patch` RBAC and ServiceAccount objects:
 
 ```bash
 $ cat ../ingress-nginx/templates/admission-webhooks/job-patch/serviceaccount.yaml
 ```
+
+This is the ServiceAccount:
+
 ```yaml
 {{- if and .Values.controller.admissionWebhooks.enabled .Values.controller.admissionWebhooks.patch.enabled -}}
 apiVersion: v1
@@ -1234,9 +1289,14 @@ metadata:
 {{- end }}
 ```
 
+and:
+
 ```bash
 $ cat ../ingress-nginx/templates/admission-webhooks/job-patch/rolebinding.yaml
 ```
+
+this the RoleBinding:
+
 ```yaml
 {{- if and .Values.controller.admissionWebhooks.enabled .Values.controller.admissionWebhooks.patch.enabled -}}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1261,9 +1321,14 @@ subjects:
 {{- end }}
 ```
 
+and this:
+
 ```bash
 $ cat ../ingress-nginx/templates/admission-webhooks/job-patch/role.yaml
 ```
+
+the Role:
+
 ```yaml
 {{- if and .Values.controller.admissionWebhooks.enabled .Values.controller.admissionWebhooks.patch.enabled -}}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1288,9 +1353,15 @@ rules:
 {{- end }}
 ```
 
-The only new addition to what has been done sofar is a dependency here on two switches that need to be added to the `hull.config.specific`  (`hull.config.specific.controller.admissionWebhooks.enabled` and `hull.config.specific.controller.admissionWebhooks.patch.enabled`) and the addition of object specific annotations in form of Helm hooks which we can handle same as any added annotation.
+The only new addition to what has been done sofar is a dependency here on two switches that need to be added to the `hull.config.specific` section: 
 
-Ok, add the central defaultBackend switches:
+- `hull.config.specific.controller.admissionWebhooks.enabled` 
+- `hull.config.specific.controller.admissionWebhooks.patch.enabled`
+
+and the addition of object specific annotations in form of Helm hooks which we can handle same as any added annotation on the object directly.
+
+
+On the practical side, add the central defaultBackend switches:
 
 ```bash
 $ sed '/^\s\s\s\sspecific/r'<(
@@ -1312,7 +1383,7 @@ $ sed '/^\s\s\s\s\s\scontroller:/r'<(
     ) -i -- values.yaml
 ```
 
-after which the top of your `values.yaml` should be equivalent to this:
+after which the top `hull.config` section of your `values.yaml` should be equivalent to this:
 
 ```yaml
 hull:
@@ -1337,9 +1408,10 @@ hull:
       podSecurityPolicy:
         enabled: false
   objects:
+  ...
 ```
 
-Then define the objects that make up the RBAC aspects of the `default-backend` and the `admission-webhooks/job-patch`:
+Then define the objects and their conditional logic that makes up the RBAC aspects of the `defaultbackend` and the `admission-webhooks/job-patch`:
 
 ```bash
 $ echo '      defaultbackend:
@@ -1352,8 +1424,8 @@ $ echo '      defaultbackend:
             - podsecuritypolicies
             verbs:
             - use
-            resourceNames:
-            - _HT![ {{ default (include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "defaultbackend")) (index . "$").Values.hull.config.specific.defaultBackend.existingPsp }} ]
+            resourceNames: _HT![ 
+              {{ default (include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "defaultbackend")) (index . "$").Values.hull.config.specific.defaultBackend.existingPsp }} ]
       admission:
         enabled: _HT?(and (index . "$").Values.hull.config.specific.controller.admissionWebhooks.enabled (index . "$").Values.hull.config.specific.controller.admissionWebhooks.patch.enabled)
         annotations:
@@ -1402,13 +1474,16 @@ $ echo '      defaultbackend:
           name: _HT^admission' >> values.yaml
 ```
 
-Note that another transformation slipped in, the `hull.util.transformation.makefullname` transformations short name `_HT^`. This is a transformation shortcut to using `tpl` with content `include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "<COMPONENT>")` to generate a unique name.
+Note the `hull.util.transformation.makefullname` transformation with short name `_HT^` being used. This is a nice transformation shortcut to using `tpl` with content `include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "<COMPONENT>")` to generate a unique name with `<COMPONENT>` suffix.
 
-Time to view the result with no external files applied:
+Time to view the result with no external files applied first:
 
 ```bash
 $ helm template .
-``` 
+```
+
+hopefully produces this output:
+ 
 ```yaml
 ---
 # Source: ingress-nginx-hull/templates/hull.yaml
@@ -1606,7 +1681,7 @@ As expected only Roles, RoleBindings and ServiceAccounts for the `default` and `
 For a quick check you can disable the `admissionWebhooks` and enable `podSecurityPolicy` and `defaultBackend`. The expected outcome is added Roles, RoleBindings and ServiceAccounts for the `defaultbackend` and missing `admission` objects:
 
 ```bash
-$ echo 'hull:    
+$ echo 'hull:
   config:
     specific:
       defaultBackend:
@@ -1619,13 +1694,13 @@ $ echo 'hull:
 ' > ../configs/default-backend-psp.yaml
 ``` 
 
-Applying it:
+When applying it:
 
 ```bash
 $ helm template -f ../configs/default-backend-psp.yaml .
 ``` 
 
-gives only `default` and `defaultbackend` objects as desired:
+that returns only `default` and `defaultbackend` objects as intended:
 
 ```yaml
 ---
@@ -1847,7 +1922,10 @@ First convert the ClusterRoleBindings from the `/templates/admission-webhooks/jo
 
 ```bash
 $  cat ../ingress-nginx/templates/admission-webhooks/job-patch/clusterrolebinding.yaml
-``` 
+```
+
+which shows the already known binding between a (Cluster)Role and a ServiceAccount:
+
 ```yaml
 {{- if and .Values.controller.admissionWebhooks.enabled .Values.controller.admissionWebhooks.patch.enabled -}}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1871,11 +1949,14 @@ subjects:
 {{- end }}
 ```
 
-and from the `/templates` folder:
+The ClusterRoleBinding nd from the `templates` folder:
 
 ```bash
 $  cat ../ingress-nginx/templates/clusterrolebinding.yaml
-``` 
+```
+
+is no different in structure:
+
 ```yaml
 {{- if and .Values.rbac.create (not .Values.rbac.scope) -}}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1895,9 +1976,9 @@ subjects:
 {{- end }}
 ```
 
-Adding them to the `values.yaml` should be mostly transparent now. One aspect to remark is the `.Values.rbac.scope` switch which toggles between a scoped RBAC solution (without ClusterRoles and ClusterRoleBindings) and an unscoped one utilizing the cluster level RBAC components.
+Adding them to the `values.yaml` should be mostly transparent now. One aspect to remark is the `.Values.rbac.scope` switch which toggles between a scoped RBAC solution (without ClusterRoles and ClusterRoleBindings) and an unscoped one utilizing the cluster level RBAC components. This will be globally modelled in your chart as well.
 
-So first add in the new "global" parameter:
+So first add in the new "global" `rbac.scope` parameter:
 
 ```bash
 $ sed '/^\s\s\s\sspecific/r'<(
@@ -1940,6 +2021,9 @@ Easy wasn't it? Lastly check out the `templates/clusterrole.yaml` and `/template
 ```bash
 $ cat ../ingress-nginx/templates/clusterrole.yaml
 ```
+
+shows the main ClusterRole:
+
 ```yaml
 {{- if .Values.rbac.create }}
 
@@ -2024,9 +2108,14 @@ rules:
 {{- end }}
 ```
 
+With:
+
 ```bash
 $ cat ../ingress-nginx/templates/admission-webhooks/job-patch/clusterrole.yaml
 ```
+
+you get the last remaining ClusterRole:
+
 ```yaml
 {{- if and .Values.controller.admissionWebhooks.enabled .Values.controller.admissionWebhooks.patch.enabled -}}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -2308,8 +2397,7 @@ hull:
             - podsecuritypolicies
             verbs:
             - use
-            resourceNames:
-            - _HT![ {{ default (include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "controller")) (index . "$").Values.hull.config.specific.controller.existingPsp }} ]
+            resourceNames: _HT![ {{ default (include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "controller")) (index . "$").Values.hull.config.specific.controller.existingPsp }} ]
       defaultbackend:
         enabled: _HT?(and (index . "$").Values.hull.config.specific.defaultBackend.enabled (index . "$").Values.hull.config.specific.podSecurityPolicy.enabled)
         rules:
@@ -2320,8 +2408,8 @@ hull:
             - podsecuritypolicies
             verbs:
             - use
-            resourceNames:
-            - _HT![ {{ default (include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "defaultbackend")) (index . "$").Values.hull.config.specific.defaultBackend.existingPsp }} ]
+            resourceNames: _HT![
+              {{ default (include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "defaultbackend")) (index . "$").Values.hull.config.specific.defaultBackend.existingPsp }} ]
       admission:
         enabled: _HT?(and (index . "$").Values.hull.config.specific.controller.admissionWebhooks.enabled (index . "$").Values.hull.config.specific.controller.admissionWebhooks.patch.enabled)
         annotations:
@@ -2368,7 +2456,6 @@ hull:
         - namespace: _HT!{{ (index . "$").Release.Namespace }}
           kind: ServiceAccount
           name: _HT^admission
-
     clusterrolebinding:
       default:
         enabled: _HT?(not (index . "$").Values.hull.config.specific.rbac.scoped)
@@ -2504,21 +2591,20 @@ hull:
             - _HT![ {{ default (include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "controller")) (index . "$").Values.hull.config.specific.controller.admissionWebhooks.existingPsp }} ]
 ```
 
-If you think this is long think about how much of the original charts templates and `values.yaml` logic is actually contained in there.
+If you think this is rather long, consider how much of the original charts templates and `values.yaml` logic is actually contained in these lines.
 
-Back up your `values.yaml` to the `values.intermediate.yaml` in case you want to modify, play around or start from scratch again with the `values.yaml`:
-
-```bash
-$ cp values.yaml values.intermediate.yaml
-```
-
-Lastly, we combine our previous results with the newly written ones. For this add our 'intermediate' results to the `values.full.yaml`. Since we copied the `hull.config.specific` part in the beginning of this tutorial part we can just overwrite it with the one we expanded here. But the already existing `hull.objects` need to be merged with the new ones so you can copy them first from `values.full.yaml` before appending them to the `values.yaml` content and saving the result as `values.full.yaml` again:
+Backup your finished `values.yaml` to the `values.tutorial-part.yaml` in case you want to modify, play around or start from scratch again with the `values.yaml`:
 
 ```bash
-$ sed '1,/objects:/d' values.full.yaml
- > _tmp && cp values.yaml values.full.yaml && cat _tmp >> values.full.yaml && rm _tmp
+$ cp values.yaml values.tutorial-part.yaml
 ```
 
-The result of this endavour can be downloaded [here](https://github.com/vidispine/hull-tutorials/tree/test/dev-to/hull/04_rbac) for reference. 
+Lastly, we combine our previous results with the newly written ones. For this add the intermediate results to the `values.full.yaml`. Since we copied the `hull.config.specific` part in the beginning of this tutorial part we can just overwrite it with the one we expanded upon during this tutorial part. But the already existing `hull.objects` need to be merged with the newly defined ones so you can copy them first from `values.full.yaml` before appending them to the `values.yaml` content and saving the complete result as `values.full.yaml` again:
 
-__Thanks for reading!__
+```bash
+$ sed '1,/objects:/d' values.full.yaml > _tmp && cp values.yaml values.full.yaml && cat _tmp >> values.full.yaml && rm _tmp
+```
+
+The result of this course can be downloaded [here](https://github.com/vidispine/hull-tutorials/tree/test/dev-to/hull/04_rbac) for reference. 
+
+__See you on the next part of this series hopefully where you take a close look at defining workload objects via HULL. Thanks for reading!__

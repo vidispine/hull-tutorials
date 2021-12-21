@@ -1,0 +1,128 @@
+hull:
+  config:
+    specific:
+      rbac:
+        scope: false
+      defaultBackend:
+        enabled: false
+        existingPsp:
+      controller:
+        publishService:
+          pathOverride: 
+          enabled: true
+        ingressClassResource:
+          name: nginx
+          enabled: true
+          default: false
+          controllerValue: "k8s.io/ingress-nginx"
+        reportNodeInternalIp: false
+        hostNetwork: false
+        maxmindLicenseKey: ""
+        healthCheckHost: ""
+        healthCheckPath: "/healthz"
+        ingressClassByName: false
+        watchIngressWithoutClass: false
+        enableMimalloc: true
+        metrics:
+          enabled: true
+        customTemplate:
+          configMapName: ""
+          configMapKey: ""
+        scope:
+          enabled: false
+          namespace: ""
+        admissionWebhooks:
+          enabled: true
+          existingPsp:
+          patch:
+            enabled: true
+          port: 8443
+          certificate: "/usr/local/certificates/cert"
+          key: "/usr/local/certificates/key"
+        electionID: ingress-controller-leader
+        existingPsp: 
+        configMaps:
+          controller:
+            namespace: 
+          tcp:
+            namespace: 
+            mappings: {}
+          udp:
+            namespace: 
+            mappings: {}
+        service:
+          enabled: true
+          annotations: {}
+          labels: {}
+          externalIPs: []
+          loadBalancerSourceRanges: []
+          enableHttp: true
+          enableHttps: true
+          # externalTrafficPolicy: ""
+          # sessionAffinity: ""
+          # healthCheckNodePort: 0
+          ipFamilyPolicy: "SingleStack"
+          ipFamilies:
+            - IPv4
+          ports:
+            http: 80
+            https: 443
+          targetPorts:
+            http: http
+            https: https
+          type: LoadBalancer
+          nodePorts:
+            http: ""
+            https: ""
+            tcp: {}
+            udp: {}
+
+          ## Enables an additional internal load balancer (besides the external one).
+          ## Annotations are mandatory for the load balancer to come up. Varies with the cloud service.
+          internal:
+            enabled: false
+            annotations: {}
+
+            # loadBalancerIP: ""
+
+            ## Restrict access For LoadBalancer service. Defaults to 0.0.0.0/0.
+            loadBalancerSourceRanges: []
+
+      ## Set external traffic policy to: "Local" to preserve source IP on
+      ## providers supporting it
+      ## Ref: https://kubernetes.io/docs/tutorials/services/source-ip/#source-ip-for-services-with-typeloadbalancer
+      # externalTrafficPolicy: ""
+
+      podSecurityPolicy:
+        enabled: false
+  objects:
+    service:
+      controller:
+        type: LoadBalancer
+        ipFamilyPolicy: "SingleStack"
+        ipFamilies:
+        - IPv4
+        ports:
+          _HULL_TRANSFORMATION_:
+            NAME: hull.util.transformation.tpl
+            CONTENT: {
+              {{ if (index . "$").Values.hull.config.specific.controller.service.enableHttps }}
+              https: { containerPort: 10254, protocol: TCP },
+              {{ end }}
+              
+              {{ if (index . "PARENT").Values.hull.config.specific.controller.admissionWebhooks.enabled }}
+              webhook: { containerPort: 8443, protocol: TCP },
+              {{ end }}
+              
+              {{ range $a,$b := (index . "PARENT").Values.hull.config.specific.controller.configMaps.tcp.mappings }}
+              {{ $a }}-tcp: { containerPort: {{ printf "%s" $a }} },
+              {{ end }}
+              
+              {{ range $a,$b := (index . "PARENT").Values.hull.config.specific.controller.configMaps.udp.mappings }}
+              {{ $a }}-udp: { containerPort: {{ printf "%s" $a }} },
+              {{ end }}
+              
+              http: { containerPort: 80, protocol: TCP },
+              
+              https: { containerPort: 443, protocol: TCP }
+            }

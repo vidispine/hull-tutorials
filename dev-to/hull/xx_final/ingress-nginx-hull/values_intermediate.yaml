@@ -1,0 +1,67 @@
+hull:
+  config:
+    specific:
+      admissionWebhooks:
+        enabled: true
+        patch:
+          enabled: true
+        failurePolicy: Fail
+  objects:
+    job:
+      _HULL_OBJECT_TYPE_DEFAULT_:
+        annotations:
+          "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+        ttlSecondsAfterFinished: 0
+        pod:
+          containers:
+            _HULL_OBJECT_TYPE_DEFAULT_:
+              image:
+                registry: k8s.gcr.io
+                repository: ingress-nginx/kube-webhook-certgen
+                tag: v1.1.1
+              imagePullPolicy: IfNotPresent
+              env:
+                POD_NAMESPACE:
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+          restartPolicy: OnFailure
+          nodeSelector:
+            kubernetes.io/os: linux
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 2000      
+      admissioncreate:
+        enabled: "_HULL_TRANSFORMATION_<<<NAME=hull.util.transformation.tpl>>><<<CONTENT=
+          {{ if (and (index . \"PARENT\").Values.hull.config.specific.admissionWebhooks.enabled (index . \"PARENT\").Values.hull.config.specific.admissionWebhooks.patch.enabled) }}true{{ else }}false{{ end }}>>>"
+        annotations:
+          "helm.sh/hook": pre-install,pre-upgrade
+        pod:
+          containers:
+            create:
+              args:
+              - "_HULL_TRANSFORMATION_<<<NAME=hull.util.transformation.tpl>>><<<CONTENT=
+                  [
+                    \"create\",
+                    \"--host={{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" (index . \"PARENT\") \"COMPONENT\" \"admission\") }},{{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" (index . \"PARENT\") \"COMPONENT\" \"admission\") }}.$(POD_NAMESPACE).svc\",
+                    \"--namespace=$(POD_NAMESPACE)\",
+                    \"--secret-name={{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" (index . \"PARENT\") \"COMPONENT\" \"admission\") }}\"
+                  ]>>>"
+      admissionpatch:
+        enabled: "_HULL_TRANSFORMATION_<<<NAME=hull.util.transformation.tpl>>><<<CONTENT=
+          {{ if (and (index . \"PARENT\").Values.hull.config.specific.admissionWebhooks.enabled (index . \"PARENT\").Values.hull.config.specific.admissionWebhooks.patch.enabled) }}true{{ else }}false{{ end }}>>>"
+        annotations:
+          "helm.sh/hook": post-install,post-upgrade
+        pod:
+          containers:
+            patch:
+              args:
+              - "_HULL_TRANSFORMATION_<<<NAME=hull.util.transformation.tpl>>><<<CONTENT=
+                  [
+                    \"patch\",
+                    \"--webhook-name={{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" (index . \"PARENT\") \"COMPONENT\" \"admission\") }},{{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" (index . \"PARENT\") \"COMPONENT\" \"admission\") }}.$(POD_NAMESPACE).svc\",
+                    \"--namespace=$(POD_NAMESPACE)\",
+                    \"--patch-mutating=false\",
+                    \"--secret-name={{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" (index . \"PARENT\") \"COMPONENT\" \"admission\") }}\",
+                    \"--patch-failure-policy={{ (index . \"PARENT\").Values.hull.config.specific.admissionWebhooks.failurePolicy }}\"
+                  ]>>>"

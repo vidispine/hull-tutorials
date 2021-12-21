@@ -114,8 +114,7 @@ hull:
             - podsecuritypolicies
             verbs:
             - use
-            resourceNames:
-            - _HT![ {{ default (include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "controller")) (index . "$").Values.hull.config.specific.controller.existingPsp }} ]
+            resourceNames: _HT![ {{ default (include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "controller")) (index . "$").Values.hull.config.specific.controller.existingPsp }} ]
       defaultbackend:
         enabled: _HT?(and (index . "$").Values.hull.config.specific.defaultBackend.enabled (index . "$").Values.hull.config.specific.podSecurityPolicy.enabled)
         rules:
@@ -126,9 +125,8 @@ hull:
             - podsecuritypolicies
             verbs:
             - use
-            resourceNames:
-            - _HT!
-                [ {{ default (include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "defaultbackend")) (index . "$").Values.hull.config.specific.defaultBackend.existingPsp }} ]
+            resourceNames: _HT![ 
+              {{ default (include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "defaultbackend")) (index . "$").Values.hull.config.specific.defaultBackend.existingPsp }} ]
       admission:
         enabled: _HT?(and (index . "$").Values.hull.config.specific.controller.admissionWebhooks.enabled (index . "$").Values.hull.config.specific.controller.admissionWebhooks.patch.enabled)
         annotations:

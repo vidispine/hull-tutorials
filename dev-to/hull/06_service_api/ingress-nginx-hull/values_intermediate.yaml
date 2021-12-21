@@ -1,0 +1,400 @@
+hull:
+  config:
+    specific:
+      controller:
+        name: controller
+        publishService:
+          enabled: true
+        electionID: ingress-controller-leader
+        reportNodeInternalIp: false
+        hostNetwork: false
+        ingressClassByName: false
+        watchIngressWithoutClass: false
+        healthCheckPath: "/healthz"
+        ingressClassResource:
+          name: nginx
+          enabled: true
+          default: false
+          controllerValue: "k8s.io/ingress-nginx"
+        configMaps:
+          controller:
+            namespace: 
+          tcp:
+            namespace: 
+            mappings: {}
+          udp:
+            namespace: 
+            mappings: {}
+        scope:
+          enabled: true
+          namespace: 
+        admissionWebhooks:
+          enabled: true
+          patch:
+            enabled: true
+          failurePolicy: Fail
+        enableMimalloc: true
+        metrics:
+          enabled: true
+      defaultBackend:
+        enabled: true
+        name: defaultbackend
+  objects:
+    job:
+      _HULL_OBJECT_TYPE_DEFAULT_:
+        annotations:
+          "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+        ttlSecondsAfterFinished: 0
+        pod:
+          containers:
+            _HULL_OBJECT_TYPE_DEFAULT_:
+              image:
+                registry: k8s.gcr.io
+                repository: ingress-nginx/kube-webhook-certgen
+                tag: v1.1.1
+              imagePullPolicy: IfNotPresent
+              env:
+                POD_NAMESPACE:
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+          restartPolicy: OnFailure
+          nodeSelector:
+            kubernetes.io/os: linux
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 2000      
+      admissioncreate:
+        enabled: "_HULL_TRANSFORMATION_<<<NAME=hull.util.transformation.tpl>>><<<CONTENT=
+          {{ if (and (index . \"PARENT\").Values.hull.config.specific.admissionWebhooks.enabled (index . \"PARENT\").Values.hull.config.specific.admissionWebhooks.patch.enabled) }}true{{ else }}false{{ end }}>>>"
+        annotations:
+          "helm.sh/hook": pre-install,pre-upgrade
+        pod:
+          containers:
+            create:
+              args:
+              - "_HULL_TRANSFORMATION_<<<NAME=hull.util.transformation.tpl>>><<<CONTENT=
+                  [
+                    \"create\",
+                    \"--host={{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" (index . \"PARENT\") \"COMPONENT\" \"admission\") }},{{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" (index . \"PARENT\") \"COMPONENT\" \"admission\") }}.$(POD_NAMESPACE).svc\",
+                    \"--namespace=$(POD_NAMESPACE)\",
+                    \"--secret-name={{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" (index . \"PARENT\") \"COMPONENT\" \"admission\") }}\"
+                  ]>>>"
+      admissionpatch:
+        enabled: "_HULL_TRANSFORMATION_<<<NAME=hull.util.transformation.tpl>>><<<CONTENT=
+          {{ if (and (index . \"PARENT\").Values.hull.config.specific.admissionWebhooks.enabled (index . \"PARENT\").Values.hull.config.specific.admissionWebhooks.patch.enabled) }}true{{ else }}false{{ end }}>>>"
+        annotations:
+          "helm.sh/hook": post-install,post-upgrade
+        pod:
+          containers:
+            patch:
+              args:
+              - "_HULL_TRANSFORMATION_<<<NAME=hull.util.transformation.tpl>>><<<CONTENT=
+                  [
+                    \"patch\",
+                    \"--webhook-name={{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" (index . \"PARENT\") \"COMPONENT\" \"admission\") }},{{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" (index . \"PARENT\") \"COMPONENT\" \"admission\") }}.$(POD_NAMESPACE).svc\",
+                    \"--namespace=$(POD_NAMESPACE)\",
+                    \"--patch-mutating=false\",
+                    \"--secret-name={{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" (index . \"PARENT\") \"COMPONENT\" \"admission\") }}\",
+                    \"--patch-failure-policy={{ (index . \"PARENT\").Values.hull.config.specific.admissionWebhooks.failurePolicy }}\"
+                  ]>>>"
+    daemonset:
+      controller:
+        enabled: false
+        revisionHistoryLimit: 10
+        minReadySeconds: 0 
+        pod:
+          dnsPolicy: ClusterFirst
+          containers:
+            controller:
+              image:
+                registry: k8s.gcr.io
+                repository: ingress-nginx/controller
+                tag: "v1.0.4"
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                capabilities:
+                    drop:
+                    - ALL
+                    add:
+                    - NET_BIND_SERVICE
+                runAsUser: 101
+                allowPrivilegeEscalation: true
+              env:
+                POD_NAME:
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                POD_NAMESPACE:
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                LD_PRELOAD:
+                  enabled: "_HULL_TRANSFORMATION_<<<NAME=hull.util.transformation.bool>>><<<CONDITION=
+                    (index . \"PARENT\").Values.hull.config.specific.controller.enableMimalloc>>>"
+                  value: /usr/local/lib/libmimalloc.so
+              livenessProbe: 
+                httpGet:
+                  # should match container.healthCheckPath
+                  path: "/healthz"
+                  port: 10254
+                  scheme: HTTP
+                initialDelaySeconds: 10
+                periodSeconds: 10
+                timeoutSeconds: 1
+                successThreshold: 1
+                failureThreshold: 5
+              readinessProbe:
+                httpGet:
+                  # should match container.healthCheckPath
+                  path: "/healthz"
+                  port: 10254
+                  scheme: HTTP
+                initialDelaySeconds: 10
+                periodSeconds: 10
+                timeoutSeconds: 1
+                successThreshold: 1
+                failureThreshold: 3
+              args:
+              - "_HULL_TRANSFORMATION_<<<NAME=hull.util.transformation.tpl>>><<<CONTENT=
+                  [
+                    {{- $p := (index . \"PARENT\") }}
+                    \"-/nginx-ingress-controller\",
+                    {{- if $p.Values.hull.config.specific.defaultBackend.enabled }}
+                    \"--default-backend-service=$(POD_NAMESPACE)/{{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" $p \"COMPONENT\" \"defaultbackend\") }}\",
+                    {{- end }}
+                    {{- with $p.Values.hull.config.specific.controller }}
+                    {{- if .publishService.enabled }}
+                    \"--publish-service={{ default (include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" $p \"COMPONENT\" \"controller\")) .publishService.name }}\",
+                    {{- end }}
+                    \"--election-id={{ .electionID }}\",
+                    \"--controller-class={{ .ingressClassResource.controllerValue }}\",
+                    \"--configmap={{ default \"$(POD_NAMESPACE)\" .configMaps.controller.namespace }}/{{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" $p \"COMPONENT\" \"controller\") }}\",
+                    {{- if .configMaps.tcp }}
+                    \"--tcp-services-configmap={{ default \"$(POD_NAMESPACE)\" .configMaps.tcp.namespace }}/{{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" $p \"COMPONENT\" \"tcp\") }}\",
+                    {{ end }}                    
+                    {{- if .configMaps.udp }}
+                    \"--udp-services-configmap={{ default \"$(POD_NAMESPACE)\" .configMaps.udp.namespace }}/{{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" $p \"COMPONENT\" \"udp\") }}\",
+                    {{ end }}                    
+                    {{- if .scope.enabled }}
+                    \"--watch-namespace={{ default \"$(POD_NAMESPACE)\" .scope.namespace }}\",
+                    {{- end }}                    
+                    {{- if and .reportNodeInternalIp .hostNetwork }}
+                    \"--report-node-internal-ip-address={{ .reportNodeInternalIp }}\",
+                    {{- end }}
+                    {{- if .admissionWebhooks.enabled }}
+                    \"--validating-webhook=:{{ .admissionWebhooks.port }}\",
+                    \"--validating-webhook-certificate={{ .admissionWebhooks.certificate }}\",
+                    \"--validating-webhook-key={{ .admissionWebhooks.key }}\",
+                    {{- end }}
+                    {{- if .maxMindMirror }}
+                    \"--healthz-host={{ .healthCheckHost }}\",
+                    {{- end }}
+                    {{- if .maxmindLicenseKey }}
+                    \"--maxmind-license-key={{ .maxmindLicenseKey }}\",
+                    {{- end }}
+                    {{- if .healthCheckHost }}
+                    \"--healthz-host={{ .healthCheckHost }}\",
+                    {{- end }}                    
+                    {{- if not (eq .healthCheckPath \"/healthz\") }}
+                    \"--health-check-path={{ .Values.controller.healthCheckPath }}\",
+                    {{- end }}
+                    {{- if .ingressClassByName }}
+                    \"--ingress-class-by-name=true\",
+                    {{- end }}
+                    {{- if .watchIngressWithoutClass }}
+                    \"--watch-ingress-without-class=true\",
+                    {{- end }}
+                    {{- end }}
+                  ]>>>"
+              ports: 
+                _HULL_TRANSFORMATION_:
+                  NAME: hull.util.transformation.tpl
+                  CONTENT: "{
+                      {{ if (index . \"PARENT\").Values.hull.config.specific.controller.metrics.enabled }}
+                      metrics: { containerPort: 10254, protocol: TCP },
+                      {{ end }}
+                      {{ if (index . \"PARENT\").Values.hull.config.specific.controller.admissionWebhooks.enabled }}
+                      webhook: { containerPort: 8443, protocol: TCP },
+                      {{ end }}
+                      {{ range $a,$b := (index . \"PARENT\").Values.hull.config.specific.controller.configMaps.tcp.mappings }}
+                      {{ $a }}-tcp: { containerPort: {{ printf \"%s\" $a }} },
+                      {{ end }}
+                      {{ range $a,$b := (index . \"PARENT\").Values.hull.config.specific.controller.configMaps.udp.mappings }}
+                      {{ $a }}-udp: { containerPort: {{ printf \"%s\" $a }} },
+                      {{ end }}
+                      http: { containerPort: 80, protocol: TCP },
+                      https: { containerPort: 443, protocol: TCP }
+                    }"
+    deployment:
+      controller:
+        enabled: true
+        revisionHistoryLimit: 10
+        minReadySeconds: 0 
+        pod:
+          dnsPolicy: ClusterFirst
+          containers:
+            controller:
+              image:
+                registry: k8s.gcr.io
+                repository: ingress-nginx/controller
+                tag: "v1.0.4"
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                capabilities:
+                    drop:
+                    - ALL
+                    add:
+                    - NET_BIND_SERVICE
+                runAsUser: 101
+                allowPrivilegeEscalation: true
+              env:
+                POD_NAME:
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                POD_NAMESPACE:
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                LD_PRELOAD:
+                  enabled: "_HULL_TRANSFORMATION_<<<NAME=hull.util.transformation.bool>>><<<CONDITION=
+                    (index . \"PARENT\").Values.hull.config.specific.controller.enableMimalloc>>>"
+                  value: /usr/local/lib/libmimalloc.so
+              livenessProbe: 
+                httpGet:
+                  # should match container.healthCheckPath
+                  path: "/healthz"
+                  port: 10254
+                  scheme: HTTP
+                initialDelaySeconds: 10
+                periodSeconds: 10
+                timeoutSeconds: 1
+                successThreshold: 1
+                failureThreshold: 5
+              readinessProbe:
+                httpGet:
+                  # should match container.healthCheckPath
+                  path: "/healthz"
+                  port: 10254
+                  scheme: HTTP
+                initialDelaySeconds: 10
+                periodSeconds: 10
+                timeoutSeconds: 1
+                successThreshold: 1
+                failureThreshold: 3
+              args:
+              - "_HULL_TRANSFORMATION_<<<NAME=hull.util.transformation.tpl>>><<<CONTENT=
+                  [
+                    {{- $p := (index . \"PARENT\") }}
+                    \"-/nginx-ingress-controller\",
+                    {{- if $p.Values.hull.config.specific.defaultBackend.enabled }}
+                    \"--default-backend-service=$(POD_NAMESPACE)/{{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" $p \"COMPONENT\" \"defaultbackend\") }}\",
+                    {{- end }}
+                    {{- with $p.Values.hull.config.specific.controller }}
+                    {{- if .publishService.enabled }}
+                    \"--publish-service={{ default (include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" $p \"COMPONENT\" \"controller\")) .publishService.name }}\",
+                    {{- end }}
+                    \"--election-id={{ .electionID }}\",
+                    \"--controller-class={{ .ingressClassResource.controllerValue }}\",
+                    \"--configmap={{ default \"$(POD_NAMESPACE)\" .configMaps.controller.namespace }}/{{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" $p \"COMPONENT\" \"controller\") }}\",
+                    {{- if .configMaps.tcp }}
+                    \"--tcp-services-configmap={{ default \"$(POD_NAMESPACE)\" .configMaps.tcp.namespace }}/{{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" $p \"COMPONENT\" \"tcp\") }}\",
+                    {{ end }}                    
+                    {{- if .configMaps.udp }}
+                    \"--udp-services-configmap={{ default \"$(POD_NAMESPACE)\" .configMaps.udp.namespace }}/{{ include \"hull.metadata.fullname\" (dict \"PARENT_CONTEXT\" $p \"COMPONENT\" \"udp\") }}\",
+                    {{ end }}                    
+                    {{- if .scope.enabled }}
+                    \"--watch-namespace={{ default \"$(POD_NAMESPACE)\" .scope.namespace }}\",
+                    {{- end }}                    
+                    {{- if and .reportNodeInternalIp .hostNetwork }}
+                    \"--report-node-internal-ip-address={{ .reportNodeInternalIp }}\",
+                    {{- end }}
+                    {{- if .admissionWebhooks.enabled }}
+                    \"--validating-webhook=:{{ .admissionWebhooks.port }}\",
+                    \"--validating-webhook-certificate={{ .admissionWebhooks.certificate }}\",
+                    \"--validating-webhook-key={{ .admissionWebhooks.key }}\",
+                    {{- end }}
+                    {{- if .maxmindLicenseKey }}
+                    \"--maxmind-license-key={{ .maxmindLicenseKey }}\",
+                    {{- end }}
+                    {{- if .healthCheckHost }}
+                    \"--healthz-host={{ .healthCheckHost }}\",
+                    {{- end }}
+                    {{- if not (eq .healthCheckPath \"/healthz\") }}
+                    \"--health-check-path={{ .Values.controller.healthCheckPath }}\",
+                    {{- end }}
+                    {{- if .ingressClassByName }}
+                    \"--ingress-class-by-name=true\",
+                    {{- end }}
+                    {{- if .watchIngressWithoutClass }}
+                    \"--watch-ingress-without-class=true\",
+                    {{- end }}
+                    {{- end }}
+                  ]>>>"
+              ports: 
+                _HULL_TRANSFORMATION_:
+                  NAME: hull.util.transformation.tpl
+                  CONTENT: "{
+                      {{ if (index . \"PARENT\").Values.hull.config.specific.controller.metrics.enabled }}
+                      metrics: { containerPort: 10254, protocol: TCP },
+                      {{ end }}
+                      {{ if (index . \"PARENT\").Values.hull.config.specific.controller.admissionWebhooks.enabled }}
+                      webhook: { containerPort: 8443, protocol: TCP },
+                      {{ end }}
+                      {{ range $a,$b := (index . \"PARENT\").Values.hull.config.specific.controller.configMaps.tcp.mappings }}
+                      {{ $a }}-tcp: { containerPort: {{ printf \"%s\" $a }} },
+                      {{ end }}
+                      {{ range $a,$b := (index . \"PARENT\").Values.hull.config.specific.controller.configMaps.udp.mappings }}
+                      {{ $a }}-udp: { containerPort: {{ printf \"%s\" $a }} },
+                      {{ end }}
+                      http: { containerPort: 80, protocol: TCP },
+                      https: { containerPort: 443, protocol: TCP }
+                    }"
+      defaultbackend:
+        enabled: false
+        revisionHistoryLimit: 10
+        pod:
+          containers:
+            controller:
+              image:
+                registry: k8s.gcr.io
+                repository: defaultbackend-amd64
+                tag: "1.5"
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                capabilities:
+                    drop:
+                    - ALL
+                runAsUser: 101
+                runAsNonRoot: true
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+              livenessProbe: 
+                httpGet:
+                  # should match container.healthCheckPath
+                  path: "/healthz"
+                  port: 8080
+                  scheme: HTTP
+                initialDelaySeconds: 30
+                periodSeconds: 10
+                timeoutSeconds: 5
+                successThreshold: 1
+                failureThreshold: 3
+              readinessProbe:
+                httpGet:
+                  # should match container.healthCheckPath
+                  path: "/healthz"
+                  port: 8080
+                  scheme: HTTP
+                initialDelaySeconds: 0
+                periodSeconds: 5
+                timeoutSeconds: 5
+                successThreshold: 1
+                failureThreshold: 6
+              ports: 
+                http:
+                  containerPort: 8080
+                  protocol: TCP
+              serviceAccountName: "_HULL_TRANSFORMATION_<<<NAME=hull.util.transformation.makefullname>>><<<COMPONENT=defaultbackend>>>"
+              terminationGracePeriodSeconds: 60
