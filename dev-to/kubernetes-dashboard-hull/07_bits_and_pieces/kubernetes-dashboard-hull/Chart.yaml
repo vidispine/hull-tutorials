@@ -1,0 +1,24 @@
+apiVersion: v2
+appVersion: 2.5.0
+dependencies:
+- condition: metrics-server.enabled
+  name: metrics-server
+  repository: https://kubernetes-sigs.github.io/metrics-server/
+  version: 3.5.0
+- name: hull
+  version: "1.23.3"
+  repository: "https://vidispine.github.io/hull"
+description: General-purpose web UI for Kubernetes clusters
+home: https://github.com/kubernetes/dashboard
+icon: https://raw.githubusercontent.com/kubernetes/kubernetes/master/logo/logo.svg
+keywords:
+- kubernetes
+- dashboard
+kubeVersion: ">=1.21.0-0"
+maintainers:
+- email: cdesaintmartin@wiremind.fr
+  name: desaintmartin
+name: kubernetes-dashboard
+sources:
+- https://github.com/kubernetes/dashboard
+version: 5.2.0

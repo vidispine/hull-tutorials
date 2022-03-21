@@ -1,0 +1,19 @@
+hull:
+  objects:
+    serviceaccount: 
+      default:
+        enabled: false
+    role: 
+      default:
+        enabled: false
+    rolebinding: 
+      default:
+        enabled: false
+    deployment:
+      dashboard:
+        pod:
+          containers:
+            dashboard:
+              image:
+                repository: kubernetesui/dashboard
+                tag: "v2.5.0"

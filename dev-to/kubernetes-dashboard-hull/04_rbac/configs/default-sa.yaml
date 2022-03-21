@@ -1,0 +1,10 @@
+hull:
+  objects:
+    deployment:
+      dashboard:
+        pod:
+          containers:
+            dashboard:
+              image:
+                repository: kubernetesui/dashboard
+                tag: "v2.5.0"

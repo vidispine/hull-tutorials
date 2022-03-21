@@ -1,0 +1,11 @@
+hull:
+  config:
+    specific:
+      protocolHttp: true
+  objects:
+    deployment:
+      dashboard:
+        pod:
+          containers:
+            metricsscraper:
+              enabled: true

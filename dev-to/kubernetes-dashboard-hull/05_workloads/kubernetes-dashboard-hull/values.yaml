@@ -1,0 +1,113 @@
+metrics-server:
+  enabled: false
+hull:
+  config:
+    specific:
+      protocolHttp: false
+      rbac:
+        clusterReadOnlyRole: false
+        clusterRoleMetrics: true
+      settings: {}
+      pinnedCRDs: {}
+  objects:
+    deployment:
+      dashboard:
+        enabled: true
+        replicas: 1
+        strategy:
+          rollingUpdate:
+            maxSurge: 0
+            maxUnavailable: 1
+          type: RollingUpdate
+        pod:
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            dashboard:
+              image:
+                repository: kubernetesui/dashboard
+                tag: v2.5.0
+              imagePullPolicy: IfNotPresent
+              args: _HT![
+                  {{- $p := (index . "$") }}
+                  "--namespace={{ $p.Release.Namespace }}",
+                  {{- if not $p.Values.hull.config.specific.protocolHttp }}
+                  "--auto-generate-certificates",
+                  {{- end }}
+                  {{- if $p.Values.hull.objects.deployment.dashboard.pod.containers.metricsscraper.enabled }}
+                  "--sidecar-host=http://127.0.0.1:8000",
+                  {{- else }}
+                  "--metrics-provider=none",
+                  {{- end }}
+                  ]
+              ports:
+                http:
+                  enabled: _HT?(index . "$").Values.hull.config.specific.protocolHttp
+                  containerPort: 9090
+                  protocol: TCP
+                https:
+                  enabled: _HT?(not (index . "$").Values.hull.config.specific.protocolHttp)
+                  containerPort: 8443
+                  protocol: TCP
+              volumeMounts:
+                dashboard:
+                  name: kubernetes-dashboard-certs
+                  mountPath: /certs
+                tmp:
+                  name: tmp-volume
+                  mountPath: /tmp
+              livenessProbe: |-
+                _HT!{
+                  httpGet: {
+                    path: /,
+                    scheme: {{ (index . "$").Values.hull.config.specific.protocolHttp | ternary "HTTP" "HTTPS" }},
+                    port: {{ (index . "$").Values.hull.config.specific.protocolHttp | ternary 9090 8443 }}
+                    }
+                  }
+                initialDelaySeconds: 30
+                timeoutSeconds: 30
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 200Mi
+                limits:
+                  cpu: 2
+                  memory: 200Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsUser: 1001
+                runAsGroup: 2001
+            metricsscraper:
+              enabled: false
+              image:
+                repository: kubernetesui/metrics-scraper
+                tag: v1.0.7
+              imagePullPolicy: IfNotPresent
+              ports:
+                tcp:
+                  containerPort: 8000
+                  protocol: TCP
+              livenessProbe:
+                httpGet:
+                  scheme: HTTP
+                  path: /
+                  port: 8000
+                initialDelaySeconds: 30
+                timeoutSeconds: 30
+              volumeMounts:
+                tmp:
+                  name: tmp-volume
+                  mountPath: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsUser: 1001
+                runAsGroup: 2001
+          volumes:
+            kubernetes-dashboard-certs:
+              secret:
+                secretName: certs
+            tmp-volume:
+              emptyDir: {}

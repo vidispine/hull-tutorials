@@ -1,0 +1,22 @@
+hull:
+  config:
+    specific:
+      labels:
+        configuration:
+          cluster:
+            configuration: "true"
+            relevancy: cluster-level
+          application:
+            configuration: "true"
+            relevancy: application-level
+  objects:
+    configmap:
+      settings:
+        labels: _HT*hull.config.specific.labels.configuration.cluster
+    secret:
+      certs:
+        labels: _HT*hull.config.specific.labels.configuration.cluster
+      kubernetes-dashboard-csrf:
+        labels: _HT*hull.config.specific.labels.configuration.application
+      kubernetes-dashboard-key-holder:
+        labels: _HT*hull.config.specific.labels.configuration.application

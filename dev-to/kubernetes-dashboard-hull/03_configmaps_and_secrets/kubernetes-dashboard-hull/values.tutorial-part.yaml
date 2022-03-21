@@ -1,0 +1,24 @@
+metrics-server:
+  enabled: false
+hull:
+  config:
+    specific:
+      settings: {}
+      pinnedCRDs: {}
+  objects:
+    configmap:
+      settings:
+        data:
+          _global:
+            inline: _HT!{{ toJson (index . "$").Values.hull.config.specific.settings | quote }}
+          _pinnedCRD:
+            path: files/pinnedCRDs
+    secret:
+      certs:
+        data: {}
+      kubernetes-dashboard-csrf:
+        data: {}
+        staticName: true
+      kubernetes-dashboard-key-holder:
+        data: {}
+        staticName: true

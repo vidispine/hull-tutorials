@@ -1,0 +1,17 @@
+hull:
+  objects:
+    configmap:
+      _HULL_OBJECT_TYPE_DEFAULT_:
+        labels:
+          label1: hello
+          label2: objecttype
+          label3: labels!
+      settings:
+        labels:
+          label4: I am a settings label!
+        annotations:
+          annotation: I am a settings annotation!
+      another:
+        data: {}
+      and_another:
+        data: {}

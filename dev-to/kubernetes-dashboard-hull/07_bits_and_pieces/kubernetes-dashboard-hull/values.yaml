@@ -1,0 +1,75 @@
+metrics-server:
+  enabled: false
+hull:
+  config:
+    specific:
+      externalPort: 443
+      protocolHttp: false
+      rbac:
+        clusterReadOnlyRole: false
+        clusterRoleMetrics: true
+      settings: {}
+      pinnedCRDs: {}
+  objects:
+    networkpolicy:
+      dashboard:
+        labels:
+          app: _HT!{{- default (index . "$").Chart.Name (index . "$").Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+          chart: _HT!{{- printf "%s-%s" (index . "$").Chart.Name (index . "$").Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
+          release: _HT!{{ (index . "$").Release.Name }}
+          heritage: _HT!{{ (index . "$").Release.Service }}
+        podSelector:
+          matchLabels: _HT&dashboard
+    poddisruptionbudget:
+      dashboard:
+        enabled: false
+        selector:
+          matchLabels: _HT&dashboard
+    podsecuritypolicy:
+      dashboard:
+        enabled: false
+        annotations:
+          seccomp.security.alpha.kubernetes.io/allowedProfileNames: "*"
+        privileged: false
+        fsGroup:
+          rule: RunAsAny
+        runAsUser:
+          rule: RunAsAny
+        runAsGroup:
+          rule: RunAsAny
+        seLinux:
+          rule: RunAsAny
+        supplementalGroups:
+          rule: RunAsAny
+        volumes:
+        - configMap
+        - secret
+        - emptyDir
+        allowPrivilegeEscalation: false
+        hostNetwork: false
+        hostIPC: false
+        hostPID: false
+    rolebinding:
+      psp:
+        enabled: _HT?(index . "$").Values.hull.objects.podsecuritypolicy.dashboard.enabled
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: Role
+          name: _HT^psp
+        subjects:
+        - kind: ServiceAccount
+          namespace: _HT!{{ (index . "$").Release.Namespace }}
+          name: _HT^default
+    role:
+      psp:
+        enabled: _HT?(index . "$").Values.hull.objects.podsecuritypolicy.dashboard.enabled
+        rules:
+          psp:
+            apiGroups:
+            - extensions
+            - policy/v1beta1
+            resources:
+            - podsecuritypolicies
+            verbs:
+            - use
+            resourceNames: _HT![ {{ include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "settings") }} ]

@@ -1,0 +1,9 @@
+hull:
+  config:
+    general:
+      metadata:
+        labels:
+          custom:
+            label1: hello
+            label2: global
+            label3: labels!

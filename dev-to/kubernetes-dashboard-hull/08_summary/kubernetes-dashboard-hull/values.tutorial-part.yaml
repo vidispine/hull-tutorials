@@ -1,0 +1,51 @@
+metrics-server:
+  enabled: false
+hull:
+  config:
+    specific:
+      externalPort: 443
+      protocolHttp: false
+      rbac:
+        clusterReadOnlyRole: false
+        clusterRoleMetrics: true
+      settings: {}
+      pinnedCRDs: {}
+  objects:
+    service:
+      dashboard:
+        labels:
+          ## Enable or disable the kubernetes.io/cluster-service label. Should be disabled for GKE clusters >=1.15.
+          ## Otherwise, the addon manager will presume ownership of the service and try to delete it.
+          "kubernetes.io/cluster-service": "true"
+        type: ClusterIP
+        ports:
+          http:
+            enabled: _HT?(index . "$").Values.hull.config.specific.protocolHttp
+            port: _HT*hull.config.specific.externalPort
+            targetPort: http
+          https:
+            enabled: _HT?(not (index . "$").Values.hull.config.specific.protocolHttp)
+            port: _HT*hull.config.specific.externalPort
+            targetPort: https
+    ingress:
+      dashboard:
+        enabled: false
+        annotations: |- 
+          _HT!{
+            {{ if not (index . "$").Values.hull.config.specific.protocolHttp }}
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
+            "service.alpha.kubernetes.io/app-protocols": "{\"https\":\"HTTPS\"}"
+            {{ end }}
+          }
+        rules:
+          default:
+            http:
+              paths:
+                root:
+                  path: /
+                  pathType: ImplementationSpecific
+                  backend:
+                    service:
+                      name: dashboard
+                      port:
+                        number: _HT*hull.config.specific.externalPort

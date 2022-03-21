@@ -1,0 +1,5 @@
+hull:
+  objects:
+    configmap:
+      settings:
+        enabled: _HT?or (ne (index . "$").Values.hull.objects.configmap.settings.data._global.inline "") (ne (index . "$").Values.hull.objects.configmap.settings.data._pinnedCRD.inline "")

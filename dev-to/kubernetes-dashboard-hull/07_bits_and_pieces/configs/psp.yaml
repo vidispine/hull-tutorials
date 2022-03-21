@@ -1,0 +1,5 @@
+hull:
+  objects:
+    podsecuritypolicy:
+      dashboard:
+        enabled: true

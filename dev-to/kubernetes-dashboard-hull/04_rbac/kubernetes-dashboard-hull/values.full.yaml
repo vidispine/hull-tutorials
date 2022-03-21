@@ -1,0 +1,250 @@
+metrics-server:
+  enabled: false
+hull:
+  config:
+    specific:
+      rbac:
+        clusterReadOnlyRole: false
+        clusterRoleMetrics: true
+      settings: {}
+      pinnedCRDs: {}
+  objects:
+    role:
+      default:
+        rules:
+          secrets:
+            apiGroups:
+            - ""
+            resources:
+            - secrets
+            resourceNames: _HT![ 
+              {{ include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "certs") }},
+              "kubernetes-dashboard-csrf",
+              "kubernetes-dashboard-key-holder"
+              ]
+            verbs:
+            - get
+            - update
+            - delete
+          configmaps:
+            apiGroups:
+            - ""
+            resources:
+            - configmaps
+            resourceNames: _HT![
+              {{ include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "settings") }} ]
+            verbs:
+            - get
+            - update
+          services:
+            apiGroups:
+            - ""
+            resources:
+            - services
+            resourceNames:
+            - "heapster"
+            - "dashboard-metrics-scraper"
+            verbs:
+            - proxy
+          services_proxy:
+            apiGroups:
+            - ""
+            resources:
+            - services/proxy
+            resourceNames:
+            - "heapster"
+            - "http:heapster:"
+            - "https:heapster:"
+            - "dashboard-metrics-scraper"
+            - "http:dashboard-metrics-scraper"
+            verbs:
+            - get
+    clusterrole:
+      readonly:
+        enabled: _HT?(index . "$").Values.hull.config.specific.rbac.clusterReadOnlyRole
+        rules:
+          cluster_objects:
+            apiGroups:
+            - ""
+            resources:
+            - configmaps
+            - endpoints
+            - persistentvolumeclaims
+            - pods
+            - replicationcontrollers
+            - replicationcontrollers/scale
+            - serviceaccounts
+            - services
+            - nodes
+            - persistentvolumeclaims
+            - persistentvolumes
+            verbs:
+            - get
+            - list
+            - watch
+          statuses:
+            apiGroups:
+            - ""
+            resources:
+            - bindings
+            - events
+            - limitranges
+            - namespaces/status
+            - pods/log
+            - pods/status
+            - replicationcontrollers/status
+            - resourcequotas
+            - resourcequotas/status
+            verbs:
+            - get
+            - list
+            - watch
+          namespaces:
+            apiGroups:
+            - ""
+            resources:
+            - namespaces
+            verbs:
+            - get
+            - list
+            - watch
+          apps:
+            apiGroups:
+            - apps
+            resources:
+            - daemonsets
+            - deployments
+            - deployments/scale
+            - replicasets
+            - replicasets/scale
+            - statefulsets
+            verbs:
+            - get
+            - list
+            - watch
+          autoscaling:
+            apiGroups:
+            - autoscaling
+            resources:
+            - horizontalpodautoscalers
+            verbs:
+            - get
+            - list
+            - watch
+          jobs:
+            apiGroups:
+            - batch
+            resources:
+            - cronjobs
+            - jobs
+            verbs:
+            - get
+            - list
+            - watch
+          extensions:
+            apiGroups:
+            - extensions
+            resources:
+            - daemonsets
+            - deployments
+            - deployments/scale
+            - ingresses
+            - networkpolicies
+            - replicasets
+            - replicasets/scale
+            - replicationcontrollers/scale
+            verbs:
+            - get
+            - list
+            - watch
+          pdb:
+            apiGroups:
+            - policy
+            resources:
+            - poddisruptionbudgets
+            verbs:
+            - get
+            - list
+            - watch
+          network:
+            apiGroups:
+            - networking.k8s.io
+            resources:
+            - networkpolicies
+            - ingresses
+            verbs:
+            - get
+            - list
+            - watch
+          storage:
+            apiGroups:
+            - storage.k8s.io
+            resources:
+            - storageclasses
+            - volumeattachments
+            verbs:
+            - get
+            - list
+            - watch
+          rbac:
+            apiGroups:
+            - rbac.authorization.k8s.io
+            resources:
+            - clusterrolebindings
+            - clusterroles
+            - roles
+            - rolebindings
+            verbs:
+            - get
+            - list
+            - watch
+      metrics:
+        enabled: _HT?(index . "$").Values.hull.config.specific.rbac.clusterRoleMetrics
+        rules:
+          metrics:
+            apiGroups:
+            - "metrics.k8s.io"
+            resources:
+            - pods
+            - nodes
+            verbs:
+            - get
+            - list
+            - watch
+    clusterrolebinding:
+      readonly:
+        enabled: _HT?(index . "$").Values.hull.config.specific.rbac.clusterReadOnlyRole
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: _HT^readonly
+        subjects:
+        - namespace: _HT!{{ (index . "$").Release.Namespace }}
+          kind: ServiceAccount
+          name: _HT^default
+      metrics:
+        enabled: _HT?(index . "$").Values.hull.config.specific.rbac.clusterRoleMetrics
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: _HT^metrics
+        subjects:
+        - namespace: _HT!{{ (index . "$").Release.Namespace }}
+          kind: ServiceAccount
+          name: _HT^default
+    configmap:
+      settings:
+        data:
+          _global:
+            inline: _HT!{{ toJson (index . "$").Values.hull.config.specific.settings | quote }}
+          _pinnedCRD:
+            path: files/pinnedCRDs
+    secret:
+      certs:
+        data: {}
+      kubernetes-dashboard-csrf:
+        data: {}
+        staticName: true
+      kubernetes-dashboard-key-holder:
+        data: {}
+        staticName: true

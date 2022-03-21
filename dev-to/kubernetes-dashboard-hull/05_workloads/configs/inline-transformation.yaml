@@ -1,0 +1,9 @@
+hull:
+  config:
+    specific:
+      settings:
+        settings_one:
+          a_string: Some config setting
+          a_number: 333
+        settings_two:
+          a_boolean: true

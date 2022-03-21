@@ -1,0 +1,6 @@
+hull:
+  config:
+    specific:
+      pinnedCRDs:
+      - an
+      - array

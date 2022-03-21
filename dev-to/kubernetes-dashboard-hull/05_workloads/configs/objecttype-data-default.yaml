@@ -1,0 +1,16 @@
+hull:
+  objects:
+    configmap:
+      _HULL_OBJECT_TYPE_DEFAULT_:
+        labels:
+          label1: hello
+          label2: objecttype
+          label3: labels!
+        data:
+          primer: 
+            inline: "I am in every ConfigMap!"
+            
+      another:
+        data: {}
+      and_another:
+        data: {}

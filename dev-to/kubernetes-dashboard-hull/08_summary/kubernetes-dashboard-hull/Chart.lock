@@ -1,0 +1,9 @@
+dependencies:
+- name: metrics-server
+  repository: https://kubernetes-sigs.github.io/metrics-server/
+  version: 3.5.0
+- name: hull
+  repository: https://vidispine.github.io/hull
+  version: 1.23.2
+digest: sha256:4767a96a559734800aa7a7916873ea676257b61b69167980d6450f53d694194b
+generated: "2022-03-17T15:26:33.858714+01:00"

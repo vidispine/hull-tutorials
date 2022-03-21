@@ -1,0 +1,8 @@
+hull:
+  config:
+    specific:
+      protocolHttp: true
+  objects:
+    ingress:
+      dashboard:
+        enabled: true

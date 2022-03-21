@@ -1,0 +1,5 @@
+hull:
+  objects:
+    poddisruptionbudget:
+      dashboard:
+        enabled: true

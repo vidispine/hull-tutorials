@@ -1,0 +1,22 @@
+hull:
+  objects:
+    serviceaccount:
+      default:
+        enabled: false
+      other_sa:
+        automountServiceAccountToken: true
+    role:
+      default:
+        enabled: false
+    rolebinding:
+      default:
+        enabled: false
+    deployment:
+      dashboard:
+        pod:
+          containers:
+            dashboard:
+              image:
+                repository: kubernetesui/dashboard
+                tag: "v2.5.0"
+          serviceAccountName: _HT^other_sa

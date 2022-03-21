@@ -1,0 +1,5 @@
+hull:
+  objects:
+    ingress:
+      dashboard:
+        enabled: true
