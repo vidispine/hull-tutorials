@@ -279,18 +279,15 @@ Usage:
 
 What happens here is pretty simple actually: when a string is passed as `value` the value is subjected to the `tpl` function, for anything else (dictionaries, arrays) the Go object is converted to a YAML block before being subjected to `tpl`.
 
-At this point you may check the reference to ``.Values.commonLabels` which is defined in the `values.yaml` with cat and a little context around the hits:
+At this point you may check the reference to `.Values.commonLabels` which is defined in the `values.yaml` with cat and a little context around the hits:
 
 ```sh
-cat ../kubernetes-dashboard/values.yaml | grep "commonLabels" -B 4 -A 4
+cat ../kubernetes-dashboard/values.yaml | grep "commonLabels" -B 1 -A 4
 ```
 
 which reveals:
 
 ```yml
-
-## Number of replicas
-replicaCount: 1
 
 ## @param commonLabels Labels to add to all deployed objects
 ##
@@ -323,7 +320,9 @@ This wraps up the inspection of this ConfigMap and the conversion to a HULL spec
 
 ## Creating ConfigMaps with HULL
 
-Time get down to business by creating the first (and in our case only) ConfigMap in the HULL charts `values.yaml`. Starting simple, copy or type in: 
+Time get down to business by creating the first (and in our case only) ConfigMap in the HULL charts `values.yaml`. 
+
+So to get started, copy or type in the following:
 
 ```sh
 echo 'hull:
@@ -337,7 +336,7 @@ echo 'hull:
             inline: ""' >> values.yaml
 ```
 
-to create the ConfigMap with empty entries in `values.yaml` and check the output with:
+to create the ConfigMap with empty entries in `values.yaml`. You can check the initial output with:
 
 ```sh
 helm template .
@@ -455,8 +454,7 @@ Start by creating a new `../configs` folder now to hold such 'external configura
 ```sh
 mkdir ../configs
 ```
-
-Add a first test configuration like this by adding sample labels to our ConfigMap:
+Add a first test configuration like this by adding sample labels to our ConfigMap and `default` object instances and template it:
 
 ```sh
 echo 'hull:
@@ -467,13 +465,8 @@ echo 'hull:
           custom:
             label1: hello
             label2: global
-            label3: labels!'> ../configs/global-custom-metadata.yaml
-```
-
-Rerender now by overlaying the additional configuration with our defaults and check the result:
-
-```sh
-helm template -f ../configs/global-custom-metadata.yaml .
+            label3: labels!'> ../configs/global-custom-metadata.yaml\
+&& helm template -f ../configs/global-custom-metadata.yaml .
 ```
 
 and all objects have the shared labels attached as you can see from the output:
@@ -580,13 +573,8 @@ echo 'hull:
       another:
         data: {}
       and_another:
-        data: {}'> ../configs/objecttype-custom-metadata.yaml
-```
-
-From templating this file:
-
-```sh
-helm template -f ../configs/objecttype-custom-metadata.yaml .
+        data: {}'> ../configs/objecttype-custom-metadata.yaml \
+&& helm template -f ../configs/objecttype-custom-metadata.yaml .
 ```
 
 you can see that only the three specified ConfigMaps have the labels assigned now:
@@ -721,16 +709,11 @@ echo 'hull:
       another:
         data: {}
       and_another:
-        data: {}'> ../configs/objecttype-data-default.yaml
+        data: {}'> ../configs/objecttype-data-default.yaml \
+&& helm template -f ../configs/objecttype-data-default.yaml .
 ```
 
-and when templated:
-
-```sh
-helm template -f ../configs/objecttype-data-default.yaml .
-```
-
-see it actually is in every ConfigMap:
+and see it actually is in every ConfigMap:
 
 ```yml
 ---
@@ -850,7 +833,7 @@ subjects:
   name: release-name-kubernetes-dashboard-default
 ```
 
-Adding a dedicated label or annotation just to your `settings` ConfigMap is easy with this overlay configuration for example:
+Adding a dedicated label or annotation just to your `settings` ConfigMap is easy with this overlay configuration for example and check the labels presence:
 
 
 ```sh
@@ -870,13 +853,8 @@ echo 'hull:
       another:
         data: {}
       and_another:
-        data: {}'> ../configs/object-custom-metadata.yaml
-```
-
-and check the labels presence:
-
-```sh
-helm template -f ../configs/object-custom-metadata.yaml .
+        data: {}'> ../configs/object-custom-metadata.yaml \
+&& helm template -f ../configs/object-custom-metadata.yaml .
 ```
 
 yielding:
@@ -996,6 +974,24 @@ subjects:
   name: release-name-kubernetes-dashboard-default
 ```
 
+As you saw, HULL automatically creates a RBAC trinity of `default` ServiceAccount, Role and RoleBinding which can be put to use straight away and you saw how setting metadata on different hierarchical levels affected these object instances. However since there is gonna be a lot more of `helm template .` output to examine in the next tutorial parts it is recommended to turn off rendering the default RBAC instances and the ServiceAccount - for now. Using an overlay `values.yaml` like this one:
+
+```sh
+echo 'hull:
+  objects:
+    serviceaccount:
+      default:
+        enabled: false
+    role:
+      default:
+        enabled: false
+    rolebinding:
+      default:
+        enabled: false'> ../configs/disable-default-rbac.yaml
+```
+
+is a good approach to disable the RBAC objects whenever they are not of interest. Whenever it is relevant for the topic of the tutorial however you can just switch RBAC objects on again not rendering the overlay.
+
 In the next part the focus is on populating the `data` section. For this we need to introduce a way to dynamically change the provided YAML contents to JSON while rendering. When explicitly not using any templates the question is how can you process the `values.yaml` contents dynamically before rendering?
 
 With [HULL transformations](https://github.com/vidispine/hull/blob/main/hull/doc/transformations.md) you can. They provide the answer to this problem and they will be used wherever the need arises to model dynamic behavior for improving user experience.
@@ -1039,72 +1035,17 @@ echo 'hull:
   objects:
     configmap:
       settings:
-        enabled: _HT?or (ne (index . "$").Values.hull.objects.configmap.settings.data._global.inline "") (ne (index . "$").Values.hull.objects.configmap.settings.data._pinnedCRD.inline "")'> ../configs/bool-transformation-1.yaml
+        enabled: _HT?or (ne (index . "$").Values.hull.objects.configmap.settings.data._global.inline "") (ne (index . "$").Values.hull.objects.configmap.settings.data._pinnedCRD.inline "")'> ../configs/bool-transformation-1.yaml \
+&& helm template -f ../configs/disable-default-rbac.yaml -f ../configs/bool-transformation-1.yaml .
 ```
 
-to see:
-
-```sh
-helm template -f ../configs/bool-transformation-1.yaml .
-```
-
-that the settings ConfigMap is not rendered:
+and see that the settings ConfigMap is not rendered:
 
 ```yml
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-rules: []
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: release-name-kubernetes-dashboard-default
-subjects:
-- kind: ServiceAccount
-  name: release-name-kubernetes-dashboard-default
+
 ```
+
+Since the `default` RBAC objects are also omitted via `-f ../configs/disable-default-rbac.yaml` the output is just empty.
 
 For the counter example, add some content to the `_global` entry:
 
@@ -1116,33 +1057,13 @@ echo 'hull:
         enabled: _HT?or (ne (index . "$").Values.hull.objects.configmap.settings.data._global.inline "") (ne (index . "$").Values.hull.objects.configmap.settings.data._pinnedCRD.inline "")
         data:
           _global:
-            inline: "test"'> ../configs/bool-transformation-2.yaml
-```
-
-and after templating:
-
-```sh
-helm template -f ../configs/bool-transformation-2.yaml .
+            inline: "test"'> ../configs/bool-transformation-2.yaml \
+&& helm template -f ../configs/disable-default-rbac.yaml -f ../configs/bool-transformation-2.yaml .
 ```
 
 observe the ConfigMap back again in the output:
 
 ```yml
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
 ---
 # Source: kubernetes-dashboard/templates/hull.yaml
 apiVersion: v1
@@ -1161,46 +1082,7 @@ metadata:
     app.kubernetes.io/version: 2.5.0
     helm.sh/chart: kubernetes-dashboard-5.2.0
   name: release-name-kubernetes-dashboard-settings
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-rules: []
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: release-name-kubernetes-dashboard-default
-subjects:
-- kind: ServiceAccount
-  name: release-name-kubernetes-dashboard-default
 ```
-
 
 
 After this detour introducing the `hull.util.transformation.bool`/`_HT?` transfomrmation in practice you can focus again on the transformation to JSON part. 
@@ -1293,33 +1175,13 @@ echo 'hull:
           a_string: Some config setting
           a_number: 333
         settings_two:
-          a_boolean: true'> ../configs/inline-transformation.yaml
-```
-
-template it:
-
-```sh
-helm template -f ../configs/inline-transformation.yaml .
+          a_boolean: true'> ../configs/inline-transformation.yaml \
+&& helm template -f ../configs/disable-default-rbac.yaml -f ../configs/inline-transformation.yaml .
 ```
 
 and check out the JSON content in the ConfigMap:
 
 ```yml
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
 ---
 # Source: kubernetes-dashboard/templates/hull.yaml
 apiVersion: v1
@@ -1338,44 +1200,6 @@ metadata:
     app.kubernetes.io/version: 2.5.0
     helm.sh/chart: kubernetes-dashboard-5.2.0
   name: release-name-kubernetes-dashboard-settings
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-rules: []
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: release-name-kubernetes-dashboard-default
-subjects:
-- kind: ServiceAccount
-  name: release-name-kubernetes-dashboard-default
 ```
 
 ### Adding ConfigMap and Secret contents via `path` specification from external files 
@@ -1409,14 +1233,9 @@ echo 'hull:
   config:
     specific:
       pinnedCRDs:
-      - an
-      - array'> ../configs/path-transformation.yaml
-```
-
-and after templating:
-
-```sh
-helm template -f ../configs/path-transformation.yaml .
+        another:
+          dicionary: test' > ../configs/path-transformation.yaml \
+&& helm template -f ../configs/disable-default-rbac.yaml -f ../configs/path-transformation.yaml .
 ```
 
 you can again see it does actually produces the JSON content:
@@ -1425,24 +1244,9 @@ you can again see it does actually produces the JSON content:
 ---
 # Source: kubernetes-dashboard/templates/hull.yaml
 apiVersion: v1
-kind: ServiceAccount
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: v1
 data:
   _global: '{}'
-  _pinnedCRD: '["an","array"]'
+  _pinnedCRD: '{"another":{"dicionary":"test"}}'
 kind: ConfigMap
 metadata:
   annotations: {}
@@ -1455,44 +1259,6 @@ metadata:
     app.kubernetes.io/version: 2.5.0
     helm.sh/chart: kubernetes-dashboard-5.2.0
   name: release-name-kubernetes-dashboard-settings
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-rules: []
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: release-name-kubernetes-dashboard-default
-subjects:
-- kind: ServiceAccount
-  name: release-name-kubernetes-dashboard-default
 ```
 
 That's it. You have learned how you can start to leverage the power of transformations - particularly the `hull.util.transformation.tpl` transformation - to improve chart creation and configuration! Done with the ConfigMap and onto the Secret!
@@ -1584,33 +1350,14 @@ echo '    secret:
         staticName: true
       kubernetes-dashboard-key-holder:
         data: {}
-        staticName: true' >> values.yaml
-```
-
-Again do the templating part:
-
-```sh
-helm template .
+        staticName: true' >> values.yaml \
+&& helm template -f ../configs/disable-default-rbac.yaml .
 ```
 
 and the Secrets have been created with the differing naming schemes:
 
 ```yml
 ---
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
 ---
 # Source: kubernetes-dashboard/templates/hull.yaml
 apiVersion: v1
@@ -1674,44 +1421,6 @@ metadata:
     app.kubernetes.io/version: 2.5.0
     helm.sh/chart: kubernetes-dashboard-5.2.0
   name: release-name-kubernetes-dashboard-settings
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-rules: []
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: release-name-kubernetes-dashboard-default
-subjects:
-- kind: ServiceAccount
-  name: release-name-kubernetes-dashboard-default
 ```
 
 In the same vein it is a good time to discuss a transformation that allows to create dynamic names from a static string in other places of charts where objects are being refered to by name and not where they themselves are being named.
@@ -1724,19 +1433,19 @@ The reasoning behind these dynamic names is that they are supposed to be unique:
 
 Another configuration option commonly offered in Helm charts is to allow the user to specify an so-called `fullnameOverride` which then replaces the `my-application-my-release` prefix with a static prefix of your choosing. While this raises the chance of object instance name collisions obviously it can help with object names becoming unnecessarily long (there is a length cap of at most 63 chars for object names in Kubernetes).
 
-By default all objects that HULL creates and manages have a unique dynamic name and there clearly defined places in Kubernetes object specifications where you address another object of a known and fixed type and there it suffices to supply just the object key name and HULL automatically converts it to the full dynamic name on rendering. 
+By default all objects that HULL creates and manages have a unique dynamic name and there clearly defined places in Kubernetes object specifications where you address another object of a known and fixed type and there it suffices to supply just the object key name and HULL automatically converts it to the full dynamic name on rendering.
 
 The places where dynamic names are created from key names automatically are:
 
-- `horizontalpodautoscaler`: 
+- `horizontalpodautoscaler`:
   - the `scaleTargetRef.name`
-- `ingress`: 
+- `ingress`:
   - the `tls.secretName`
   - the `backend.service.name`
-- `container`: 
-  - the `env.valueFrom.configMapKeyRef` 
+- `container`:
+  - the `env.valueFrom.configMapKeyRef`
   - the `env.valueFrom.secretKeyRef`
-  - the `envFrom.configMapRef` 
+  - the `envFrom.configMapRef`
   - the `envFrom.secretRef`
 - `volume`:
   - the `configMap.name`
@@ -1803,33 +1512,13 @@ echo 'hull:
       kubernetes-dashboard-csrf:
         labels: _HT*hull.config.specific.labels.configuration.application
       kubernetes-dashboard-key-holder:
-        labels: _HT*hull.config.specific.labels.configuration.application'> ../configs/get-transformation.yaml
-```
-
-and after running
-
-```sh
-helm template -f ../configs/get-transformation.yaml .
+        labels: _HT*hull.config.specific.labels.configuration.application'> ../configs/get-transformation.yaml \
+&& helm template -f ../configs/disable-default-rbac.yaml -f ../configs/get-transformation.yaml .
 ```
 
 we have successdfully grouped objects by a shared set of labels:
 
 ```yml
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
 ---
 # Source: kubernetes-dashboard/templates/hull.yaml
 apiVersion: v1
@@ -1901,44 +1590,6 @@ metadata:
     helm.sh/chart: kubernetes-dashboard-5.2.0
     relevancy: cluster-level
   name: release-name-kubernetes-dashboard-settings
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-rules: []
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: release-name-kubernetes-dashboard-default
-subjects:
-- kind: ServiceAccount
-  name: release-name-kubernetes-dashboard-default
 ```
 
 ## Wrap up

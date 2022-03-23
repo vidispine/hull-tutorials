@@ -480,71 +480,13 @@ echo 'hull:
   objects:
     ingress:
       dashboard:
-        enabled: true' > ../configs/enable-ingress.yaml
-```
-
-Check the result:
-
-```sh
-helm template -f ../configs/enable-ingress.yaml .
+        enabled: true' > ../configs/enable-ingress.yaml \
+&& helm template -f ../configs/disable-default-rbac.yaml -f ../configs/enable-ingress.yaml .
 ```
 
 and there it is:
 
 ```yml
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-rules: []
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: release-name-kubernetes-dashboard-default
-subjects:
-- kind: ServiceAccount
-  name: release-name-kubernetes-dashboard-default
 ---
 # Source: kubernetes-dashboard/templates/hull.yaml
 apiVersion: v1
@@ -613,71 +555,13 @@ echo 'hull:
   objects:
     ingress:
       dashboard:
-        enabled: true' > ../configs/enable-ingress-http.yaml
-```
-
-Check the result:
-
-```sh
-helm template -f ../configs/enable-ingress-http.yaml .
+        enabled: true' > ../configs/enable-ingress-http.yaml \
+&& helm template -f ../configs/disable-default-rbac.yaml -f ../configs/enable-ingress-http.yaml .
 ```
 
 and there it is:
 
 ```yml
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-rules: []
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: release-name-kubernetes-dashboard-default
-subjects:
-- kind: ServiceAccount
-  name: release-name-kubernetes-dashboard-default
 ---
 # Source: kubernetes-dashboard/templates/hull.yaml
 apiVersion: v1

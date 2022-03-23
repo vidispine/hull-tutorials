@@ -7,9 +7,8 @@ hull:
           label2: objecttype
           label3: labels!
         data:
-          primer: 
+          see:
             inline: "I am in every ConfigMap!"
-            
       another:
         data: {}
       and_another:

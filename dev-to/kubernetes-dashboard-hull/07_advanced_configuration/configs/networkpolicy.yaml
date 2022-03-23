@@ -1,0 +1,5 @@
+hull:
+  objects:
+    networkpolicy:
+      dashboard:
+        enabled: true

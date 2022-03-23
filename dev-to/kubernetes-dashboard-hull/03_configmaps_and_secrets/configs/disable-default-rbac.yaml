@@ -1,0 +1,11 @@
+hull:
+  objects:
+    serviceaccount:
+      default:
+        enabled: false
+    role:
+      default:
+        enabled: false
+    rolebinding:
+      default:
+        enabled: false

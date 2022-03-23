@@ -1,0 +1,5 @@
+hull:
+  objects:
+    servicemonitor:
+      dashboard:
+        enabled: true

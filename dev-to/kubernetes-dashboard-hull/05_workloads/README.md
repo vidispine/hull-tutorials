@@ -691,65 +691,12 @@ echo '  objects:
 Does it render as expected?
 
 ```sh
-helm template .
+helm template -f ../configs/disable-default-rbac.yaml .
 ```
 
 yields:
 
 ```yml
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-rules: []
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: release-name-kubernetes-dashboard-default
-subjects:
-- kind: ServiceAccount
-  name: release-name-kubernetes-dashboard-default
 ---
 # Source: kubernetes-dashboard/templates/hull.yaml
 apiVersion: apps/v1
@@ -830,7 +777,6 @@ spec:
       securityContext:
         seccompProfile:
           type: RuntimeDefault
-      serviceAccountName: release-name-kubernetes-dashboard-default
       volumes:
       - name: kubernetes-dashboard-certs
         secret:
@@ -852,71 +798,13 @@ echo 'hull:
         pod:
           containers:
             metricsscraper:
-              enabled: true' > ../configs/enable-http-scraper.yaml
-```
-
-Check the result:
-
-```sh
-helm template -f ../configs/enable-http-scraper.yaml .
+              enabled: true' > ../configs/enable-http-scraper.yaml \
+&& helm template -f ../configs/disable-default-rbac.yaml -f ../configs/enable-http-scraper.yaml .
 ```
 
 and you'll see that the `args`, `ports` and `livenessProbe` output has changed to reflect the change to the `protocolHttp` property and the `metricsscraper` container is activated:
 
 ```yml
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-rules: []
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: release-name-kubernetes-dashboard-default
-subjects:
-- kind: ServiceAccount
-  name: release-name-kubernetes-dashboard-default
 ---
 # Source: kubernetes-dashboard/templates/hull.yaml
 apiVersion: apps/v1
@@ -1020,7 +908,6 @@ spec:
       securityContext:
         seccompProfile:
           type: RuntimeDefault
-      serviceAccountName: release-name-kubernetes-dashboard-default
       volumes:
       - name: kubernetes-dashboard-certs
         secret:

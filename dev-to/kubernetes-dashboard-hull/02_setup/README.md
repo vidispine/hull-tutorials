@@ -35,8 +35,7 @@ cd ~
 and there create a directory for our project and first tutorial part and switch to it:
 
 ```sh
-mkdir kubernetes-dashboard-hull
-mkdir kubernetes-dashboard-hull/02_setup && cd kubernetes-dashboard-hull/02_setup
+mkdir kubernetes-dashboard-hull && mkdir kubernetes-dashboard-hull/02_setup && cd kubernetes-dashboard-hull/02_setup
 ```
  
 ## Getting the original `kubernetes-dashboard` chart
@@ -172,40 +171,6 @@ name: kubernetes-dashboard
 sources:
 - https://github.com/kubernetes/dashboard
 version: 5.2.0' > Chart.yaml
-```
-
-Verify it was written correctly:
-```sh
-cat Chart.yaml
-```
-
-returns:
-
-```yml
-apiVersion: v2
-appVersion: 2.5.0
-dependencies:
-- condition: metrics-server.enabled
-  name: metrics-server
-  repository: https://kubernetes-sigs.github.io/metrics-server/
-  version: 3.5.0
-- name: hull
-  version: "1.23.3"
-  repository: "https://vidispine.github.io/hull"
-description: General-purpose web UI for Kubernetes clusters
-home: https://github.com/kubernetes/dashboard
-icon: https://raw.githubusercontent.com/kubernetes/kubernetes/master/logo/logo.svg
-keywords:
-- kubernetes
-- dashboard
-kubeVersion: ">=1.21.0-0"
-maintainers:
-- email: cdesaintmartin@wiremind.fr
-  name: desaintmartin
-name: kubernetes-dashboard
-sources:
-- https://github.com/kubernetes/dashboard
-version: 5.2.0
 ```
 
 Before starting work on the `values.yaml` you should download the HULL library by the Helm way of updating Chart dependencies:
@@ -642,7 +607,7 @@ echo 'metrics-server:
   enabled: false' > values.yaml
 ```
 
-Now the `hull template` output should only contain the HULL objects which are created by default. You can verify this by entering again:
+Now the `helm template .` output should only contain the HULL objects which are created by default. You can verify this by entering again:
 
 ```sh
 helm template .

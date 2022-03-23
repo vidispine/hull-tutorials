@@ -101,18 +101,12 @@ metadata:
 The actual creation of the ServiceAccount name is deferred to a helper function in `_helpers.tpl` which we look at in more detail:
 
 ```sh
-cat ../kubernetes-dashboard/templates/_helpers.tpl | grep 'kubernetes-dashboard\.serviceAccountName' -B 10 -A 10
+cat ../kubernetes-dashboard/templates/_helpers.tpl | grep 'kubernetes-dashboard\.serviceAccountName' -B 4 -A 10
 ```
 
 where the inherent logic becomes more apparent:
 
 ```yml
-Common label selectors
-*/}}
-{{- define "kubernetes-dashboard.matchLabels" -}}
-app.kubernetes.io/name: {{ include "kubernetes-dashboard.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end -}}
 
 {{/*
 Name of the service account to use
@@ -129,21 +123,12 @@ Name of the service account to use
 Now check the `values.yaml` section dealing with the `serviceAccount` configuration: 
 
 ```sh
-cat ../kubernetes-dashboard/values.yaml | grep '^serviceAccount' -B 10 -A 10
+cat ../kubernetes-dashboard/values.yaml | grep '^serviceAccount' -B 1 -A 6
 ```
 
 for completing our examination of the `controller`s ServiceAccount configuration:
 
 ```yml
-  # is not to hide all the secrets and sensitive data but more
-  # to avoid accidental changes in the cluster outside the standard CI/CD.
-  #
-  # It is NOT RECOMMENDED to use this version in production.
-  # Instead you should review the role and remove all potentially sensitive parts such as
-  # access to persistentvolumes, pods/log etc.
-  #
-  # Independent from rbac.create parameter.
-  clusterReadOnlyRole: false
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -152,13 +137,11 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name:
 
-livenessProbe:
-  # Number of seconds to wait before sending first probe
-  initialDelaySeconds: 30
-  # Number of seconds to wait for probe response
 ```
 
-Now you should have garnered an impression of the ServiceAccount configuration options and relations which is actually typical way to model this aspect in Helm charts. Let's look at how you can handle the ServiceAccount and RBAC aspects with HULL.
+Now you should have garnered an impression of the ServiceAccount configuration options and relations which is actually atypical way to model this aspect in Helm charts. Let's look at how you can handle the ServiceAccount and RBAC aspects with HULL.
+
+A word in advance: while it is useful to omit rendering of the `default` ServiceAccount, Role and RoleBinding objects for the most part of this tutorial it does not make sense to do this when checking the RBAC configuration options that do involve them. Therefore during this turorial section the `-f ../configs/disable-default-rbac.yaml` parameter is not being set and thus the `default` RBAC objects and ServiceAccount are rendered. For the next tutorial part add the switch again to reduce output.
 
 ## Choosing ServiceAccounts for pods in HULL
 
@@ -212,13 +195,8 @@ echo 'hull:
             dashboard:
               image:
                 repository: kubernetesui/dashboard
-                tag: "v2.5.0"' > ../configs/default-sa.yaml
-```
-
-Apply:
-
-```sh
-helm template -f ../configs/default-sa.yaml .
+                tag: "v2.5.0"' > ../configs/default-sa.yaml \
+&& helm template -f ../configs/default-sa.yaml .
 ```
 
 and you'll see the the charts `default` ServiceAccount being used for the pod(actually all pods if there were more and they were setup in the same way):
@@ -352,13 +330,8 @@ echo 'hull:
             dashboard:
               image:
                 repository: kubernetesui/dashboard
-                tag: "v2.5.0"' > ../configs/k8s-default-sa.yaml
-```
-
-Again check the result:
-
-```sh
-helm template -f ../configs/k8s-default-sa.yaml .
+                tag: "v2.5.0"' > ../configs/k8s-default-sa.yaml \
+&& helm template -f ../configs/k8s-default-sa.yaml .
 ```
 
 and you'll find that no `default` ServiceAccount, Role or RoleBinding was created and no ServiceAccount is set on the pod so the 'default' one from Kubernetes is applied as intended:
@@ -433,13 +406,8 @@ echo 'hull:
               image:
                 repository: kubernetesui/dashboard
                 tag: "v2.5.0"
-          serviceAccountName: my-external-cluster-sa' > ../configs/external-sa.yaml
-```
-
-Observe the output:
-
-```sh
-helm template -f ../configs/external-sa.yaml .
+          serviceAccountName: my-external-cluster-sa' > ../configs/external-sa.yaml \
+&& helm template -f ../configs/external-sa.yaml .
 ```
 
 yielding the result expected:
@@ -525,13 +493,8 @@ echo 'hull:
               image:
                 repository: kubernetesui/dashboard
                 tag: "v2.5.0"
-          serviceAccountName: _HT^other_sa' > ../configs/internal-dynamic-sa.yaml
-```
-
-where when applied:
-
-```sh
-helm template -f ../configs/internal-dynamic-sa.yaml .
+          serviceAccountName: _HT^other_sa' > ../configs/internal-dynamic-sa.yaml \
+&& helm template -f ../configs/internal-dynamic-sa.yaml .
 ```
 
 `_HT^` is used to create the release specific name with a given suffix (here `other_sa`):
@@ -628,13 +591,8 @@ echo 'hull:
               image:
                 repository: kubernetesui/dashboard
                 tag: "v2.5.0"
-          serviceAccountName: other_sa' > ../configs/internal-static-sa.yaml
-```
-
-Check the result:
-
-```sh
-helm template -f ../configs/internal-static-sa.yaml .
+          serviceAccountName: other_sa' > ../configs/internal-static-sa.yaml \
+&& helm template -f ../configs/internal-static-sa.yaml .
 ```
 
 and find the statically named ServiceAccount configured for the pod:
@@ -855,7 +813,7 @@ rules:
 {{- end -}}
 ```
 
-You can now use the `default` Role that comes with HULL in the standard scenario and add the `rules:` as shown here and we'll look at interesting aspects afterwards:
+You can now use the `default` Role that comes with HULL in the standard scenario and add the `rules:` as shown here and look at interesting aspects afterwards:
 
 ```sh
 echo '  objects:
@@ -1619,13 +1577,8 @@ echo 'hull:
   config:
     specific:
       rbac:
-        clusterReadOnlyRole: true' > ../configs/enable-cluster-role.yaml
-```
-
-As usual, render the result:
-
-```sh
-helm template -f ../configs/enable-cluster-role.yaml .
+        clusterReadOnlyRole: true' > ../configs/enable-cluster-role.yaml \
+&& helm template -f ../configs/enable-cluster-role.yaml .
 ```
 
 and examine it:

@@ -439,7 +439,7 @@ hull:
           _global:
             inline: _HT!{{ toJson (index . "$").Values.hull.config.specific.settings | quote }}
           _pinnedCRD:
-            path: files/pinnedCRDs
+            path: files/pinnedCRDs 
     secret:
       certs:
         data: {}

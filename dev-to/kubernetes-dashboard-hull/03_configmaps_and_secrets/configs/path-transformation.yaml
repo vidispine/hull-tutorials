@@ -2,5 +2,5 @@ hull:
   config:
     specific:
       pinnedCRDs:
-      - an
-      - array
+        another:
+          dicionary: test

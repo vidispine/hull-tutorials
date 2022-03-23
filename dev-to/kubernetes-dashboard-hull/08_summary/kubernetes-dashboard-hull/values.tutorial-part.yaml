@@ -11,41 +11,78 @@ hull:
       settings: {}
       pinnedCRDs: {}
   objects:
-    service:
+    networkpolicy:
       dashboard:
         labels:
-          ## Enable or disable the kubernetes.io/cluster-service label. Should be disabled for GKE clusters >=1.15.
-          ## Otherwise, the addon manager will presume ownership of the service and try to delete it.
-          "kubernetes.io/cluster-service": "true"
-        type: ClusterIP
-        ports:
-          http:
-            enabled: _HT?(index . "$").Values.hull.config.specific.protocolHttp
-            port: _HT*hull.config.specific.externalPort
-            targetPort: http
-          https:
-            enabled: _HT?(not (index . "$").Values.hull.config.specific.protocolHttp)
-            port: _HT*hull.config.specific.externalPort
-            targetPort: https
-    ingress:
+          app: _HT!{{- default (index . "$").Chart.Name (index . "$").Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+          chart: _HT!{{- printf "%s-%s" (index . "$").Chart.Name (index . "$").Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
+          release: _HT!{{ (index . "$").Release.Name }}
+          heritage: _HT!{{ (index . "$").Release.Service }}
+        podSelector:
+          matchLabels: _HT&dashboard
+    poddisruptionbudget:
       dashboard:
         enabled: false
-        annotations: |- 
-          _HT!{
-            {{ if not (index . "$").Values.hull.config.specific.protocolHttp }}
-            "nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
-            "service.alpha.kubernetes.io/app-protocols": "{\"https\":\"HTTPS\"}"
-            {{ end }}
-          }
+        selector:
+          matchLabels: _HT&dashboard
+    podsecuritypolicy:
+      dashboard:
+        enabled: false
+        annotations:
+          seccomp.security.alpha.kubernetes.io/allowedProfileNames: "*"
+        privileged: false
+        fsGroup:
+          rule: RunAsAny
+        runAsUser:
+          rule: RunAsAny
+        runAsGroup:
+          rule: RunAsAny
+        seLinux:
+          rule: RunAsAny
+        supplementalGroups:
+          rule: RunAsAny
+        volumes:
+        - configMap
+        - secret
+        - emptyDir
+        allowPrivilegeEscalation: false
+        hostNetwork: false
+        hostIPC: false
+        hostPID: false
+    rolebinding:
+      psp:
+        enabled: _HT?(index . "$").Values.hull.objects.podsecuritypolicy.dashboard.enabled
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: Role
+          name: _HT^psp
+        subjects:
+        - kind: ServiceAccount
+          namespace: _HT!{{ (index . "$").Release.Namespace }}
+          name: _HT^default
+    role:
+      psp:
+        enabled: _HT?(index . "$").Values.hull.objects.podsecuritypolicy.dashboard.enabled
         rules:
-          default:
-            http:
-              paths:
-                root:
-                  path: /
-                  pathType: ImplementationSpecific
-                  backend:
-                    service:
-                      name: dashboard
-                      port:
-                        number: _HT*hull.config.specific.externalPort
+          psp:
+            apiGroups:
+            - extensions
+            - policy/v1beta1
+            resources:
+            - podsecuritypolicies
+            verbs:
+            - use
+            resourceNames: _HT![ {{ include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "settings") }} ]
+    servicemonitor:
+      dashboard:
+        enabled: false
+        endpoints: |-
+          _HT![ 
+            {{ if (index . "$").Values.hull.config.specific.protocolHttp }}
+            { port: "http" }
+            {{ else }}
+            { port: "https" }
+            {{ end }}
+          ]
+        selector:
+          matchLabels: _HT&dashboard

@@ -11,8 +11,22 @@ hull:
       settings: {}
       pinnedCRDs: {}
   objects:
+    servicemonitor:
+      dashboard:
+        enabled: false
+        endpoints: |-
+          _HT![ 
+            {{ if (index . "$").Values.hull.config.specific.protocolHttp }}
+            { port: "http" }
+            {{ else }}
+            { port: "https" }
+            {{ end }}
+          ]
+        selector:
+          matchLabels: _HT&dashboard
     networkpolicy:
       dashboard:
+        enabled: false
         labels:
           app: _HT!{{- default (index . "$").Chart.Name (index . "$").Values.nameOverride | trunc 63 | trimSuffix "-" -}}
           chart: _HT!{{- printf "%s-%s" (index . "$").Chart.Name (index . "$").Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
@@ -20,6 +34,21 @@ hull:
           heritage: _HT!{{ (index . "$").Release.Service }}
         podSelector:
           matchLabels: _HT&dashboard
+        ingress: |-
+          _HT![
+            { ports:
+              [
+                {
+                  protocol: TCP,
+                  {{ if (index . "$").Values.hull.config.specific.protocolHttp }}
+                  port: "http"
+                  {{ else }}
+                  port: "https"
+                  {{ end }}
+                }
+              ]
+            }
+          ]
     poddisruptionbudget:
       dashboard:
         enabled: false
@@ -60,3 +89,16 @@ hull:
         - kind: ServiceAccount
           namespace: _HT!{{ (index . "$").Release.Namespace }}
           name: _HT^default
+    role:
+      psp:
+        enabled: _HT?(index . "$").Values.hull.objects.podsecuritypolicy.dashboard.enabled
+        rules:
+          psp:
+            apiGroups:
+            - extensions
+            - policy/v1beta1
+            resources:
+            - podsecuritypolicies
+            verbs:
+            - use
+            resourceNames: _HT![ {{ include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "settings") }} ]

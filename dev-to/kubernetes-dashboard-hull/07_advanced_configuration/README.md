@@ -1,14 +1,12 @@
 
 ## Preparation
 
-In this tutorial section you are going to deal with the remaining template files and objects from the `kubernetes-dashboard` chart which we haven't covered yet. This will conclude the educational conversion of objects from a 'regular' Helm chart to a HULL based chart.
+In this tutorial section you are going to deal with the remaining template files and a little more advanced things you can tweak in the `kubernetes-dashboard` chart which we haven't covered yet. This will conclude the educational conversion of objects from a 'regular' Helm chart to a HULL based chart.
 
-But before diving into this prepare your working folder a last time:
-
-Copy over the last sections result:
+But before diving into this prepare your working folder again and copy over the last sections result:
 
 ```sh
-cd ~/kubernetes-dashboard-hull && cp -R 06_service_api/ 07_bits_and_pieces && cd 07_bits_and_pieces/kubernetes-dashboard-hull
+cd ~/kubernetes-dashboard-hull && cp -R 06_service_api/ 07_advanced_configuration && cd 07_advanced_configuration/kubernetes-dashboard-hull
 ```
 
 Prepare the `values.yaml`:
@@ -62,6 +60,89 @@ pdb.yaml
 psp.yaml
 servicemonitor.yaml
 ```
+
+Aspects such as NetworkPolicies, PodDisruptionBudgets, PodSecurityPolicies and ServiceMonitors can be considered more advanced use vases as you can see that you need to enable each of these features explicitly to use them in the `kubernetes-dashboard` chart.
+
+## Using in-built ServiceMonitors and CRDs
+
+The ServiceMonitor concept is part of the Prometheus Operator concept and offers a convenient way to add and remove endpoints which export Prometheus metrics so a Prometheus instance can dynamically monitor them. 
+
+Since it is a very popular concept to expose an applications metric, the ServiceMonitor has its own object type `servicemonitor` in the HULL world.
+
+By default the ServiceMonitor in `values.yaml`:
+
+```sh
+cat ../kubernetes-dashboard/values.yaml | grep "^serviceMonitor:" -B 1 -A 2
+```
+is disabled:
+
+```yml
+
+serviceMonitor:
+  # Whether or not to create a Prometheus Operator service monitor.
+  enabled: false
+```
+
+Here you can create the `servicemonitor` object according to its underlying logic:
+```sh
+echo '  objects:
+    servicemonitor:
+      dashboard:
+        enabled: false
+        endpoints: |-
+          _HT![ 
+            {{ if (index . "$").Values.hull.config.specific.protocolHttp }}
+            { port: "http" }
+            {{ else }}
+            { port: "https" }
+            {{ end }}
+          ]
+        selector:
+          matchLabels: _HT&dashboard' >> values.yaml
+```
+
+Enable the ServiceMonitor with this:
+
+```sh
+echo 'hull:
+  objects:
+    servicemonitor:
+      dashboard:
+        enabled: true' > ../configs/servicemonitor.yaml \
+&& helm template -f ../configs/disable-default-rbac.yaml -f ../configs/servicemonitor.yaml .
+```
+
+and test the output:
+
+```yml
+---
+# Source: kubernetes-dashboard/templates/hull.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  annotations: {}
+  labels:
+    app.kubernetes.io/component: dashboard
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kubernetes-dashboard
+    app.kubernetes.io/part-of: undefined
+    app.kubernetes.io/version: 2.5.0
+    helm.sh/chart: kubernetes-dashboard-5.2.0
+  name: release-name-kubernetes-dashboard-dashboard
+spec:
+  endpoints:
+  - port: https
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: dashboard
+      app.kubernetes.io/instance: release-name
+      app.kubernetes.io/name: kubernetes-dashboard
+```
+
+If there are any other CustomResourceDefinitions or CustomResources to create within your Helm chart this is possible too in HULL by:
+- the ability to [deploy your CRDs with the `crds` folder](https://helm.sh/docs/chart_best_practices/custom_resource_definitions/)
+- the ability to specify any CustomResource as a [`customresource` object instance.](https://github.com/vidispine/hull/blob/main/hull/doc/objects_customresource.md) For CustomResources you additionally need to specify the `kind` and `apiVersion` besides the free form `spec` of your object.
 
 ## Specifying NetworkPolicies
 
@@ -121,7 +202,23 @@ spec:
 {{- end -}}
 ```
 
-The addition of new fixed labels here:
+and disabled by default as shown:
+
+```sh
+cat ../kubernetes-dashboard/values.yaml | grep "^networkPolicy:" -B 1 -A 3
+```
+
+in the `values.yaml`:
+
+```yml
+
+networkPolicy:
+  # Whether to create a network policy that allows/restricts access to the service
+  enabled: false
+
+```
+
+The addition of the new fixed labels here:
 
 ```yml
   labels:
@@ -131,32 +228,52 @@ The addition of new fixed labels here:
     heritage: {{ .Release.Service }}
 ```
 
-appears to be out of line with the metadata of the remaining objects in this chart and may likely not have a functionality even. Anyway for completeness sake add them anyway to the new objects metadata labels by transporting the underlying logic.
+appears to be pretty much out of line with the metadata handling of the other objects in this chart and may likely not have a functionality even. Anyway for completeness sake add them to the new objects metadata labels by transporting the underlying logic.
 
 Regarding the `podSelector` you can utilize HULL's `hull.tranformation.selector` function to create the corresponding labels to match the `dashboard` pods. 
 
 That's all, write it to the `values.yaml`:
 
 ```sh
-echo '  objects:
-    networkpolicy:
+echo '    networkpolicy:
       dashboard:
+        enabled: false
         labels:
           app: _HT!{{- default (index . "$").Chart.Name (index . "$").Values.nameOverride | trunc 63 | trimSuffix "-" -}}
           chart: _HT!{{- printf "%s-%s" (index . "$").Chart.Name (index . "$").Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
           release: _HT!{{ (index . "$").Release.Name }}
           heritage: _HT!{{ (index . "$").Release.Service }}
         podSelector:
-          matchLabels: _HT&dashboard' >> values.yaml
+          matchLabels: _HT&dashboard
+        ingress: |-
+          _HT![
+            { ports:
+              [
+                {
+                  protocol: TCP,
+                  {{ if (index . "$").Values.hull.config.specific.protocolHttp }}
+                  port: "http"
+                  {{ else }}
+                  port: "https"
+                  {{ end }}
+                }
+              ]
+            }
+          ]'>> values.yaml
 ```
 
-apply the `helm template` command:
+and apply the `helm template` command on the enabled networkpolicy:
 
 ```sh
-helm template .
+echo 'hull:
+  objects:
+    networkpolicy:
+      dashboard:
+        enabled: true' > ../configs/networkpolicy.yaml \
+&& helm template -f ../configs/disable-default-rbac.yaml -f ../configs/networkpolicy.yaml .
 ```
 
-and ponder the results:
+and verify the results correctness:
 
 ```yml
 ---
@@ -179,64 +296,15 @@ metadata:
     release: release-name
   name: release-name-kubernetes-dashboard-dashboard
 spec:
+  ingress:
+  - ports:
+    - port: https
+      protocol: TCP
   podSelector:
     matchLabels:
       app.kubernetes.io/component: dashboard
       app.kubernetes.io/instance: release-name
       app.kubernetes.io/name: kubernetes-dashboard
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-rules: []
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: release-name-kubernetes-dashboard-default
-subjects:
-- kind: ServiceAccount
-  name: release-name-kubernetes-dashboard-default
 ```
 
 ## Specifying a PodDisruptionBudget
@@ -326,50 +394,20 @@ echo '    poddisruptionbudget:
           matchLabels: _HT&dashboard' >> values.yaml
 ```
 
-and do a quick check:
+and again do a quick check by enabling the PodDisruptionBudget:
 
 ```sh
 echo 'hull:
   objects:
     poddisruptionbudget:
       dashboard:
-        enabled: true' > ../configs/pdb.yaml
-```
-
-of the rendered object:
-
-```sh
-helm template -f ../configs/pdb.yaml .
+        enabled: true' > ../configs/pdb.yaml \
+&& helm template -f ../configs/disable-default-rbac.yaml -f ../configs/pdb.yaml .
 ```
 
 which is pretty bare bones:
 
 ```yml
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  annotations: {}
-  labels:
-    app: kubernetes-dashboard
-    app.kubernetes.io/component: dashboard
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    chart: kubernetes-dashboard-5.2.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-    heritage: Helm
-    release: release-name
-  name: release-name-kubernetes-dashboard-dashboard
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/component: dashboard
-      app.kubernetes.io/instance: release-name
-      app.kubernetes.io/name: kubernetes-dashboard
 ---
 # Source: kubernetes-dashboard/templates/hull.yaml
 apiVersion: policy/v1
@@ -391,70 +429,17 @@ spec:
       app.kubernetes.io/component: dashboard
       app.kubernetes.io/instance: release-name
       app.kubernetes.io/name: kubernetes-dashboard
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-rules: []
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: release-name-kubernetes-dashboard-default
-subjects:
-- kind: ServiceAccount
-  name: release-name-kubernetes-dashboard-default
 ```
 
 ## Setting up PodSecurityPolicies
 
-Inspect the last remaining file:
+When you inspect the remaining PodSecurityPolicy file:
 
 ```sh
 cat ../kubernetes-dashboard/templates/psp.yaml
 ```
 
-wherein you find a PodSecurityPolicy and surprisingly another Role and RoleBinding:
+you find a PodSecurityPolicy and - surprisingly - another Role and RoleBinding:
 
 ```yml
 # Copyright 2017 The Kubernetes Authors.
@@ -541,7 +526,23 @@ rules:
 {{- end -}}
 ```
 
-Apart from the surprise of the unexpected objects there is nothing new to be found here and we can straight up convert them by adding the PodSecurityPolicy and the RoleBinding:
+The `values.yaml` 
+
+```sh
+cat ../kubernetes-dashboard/values.yaml | grep "^podSecurityPolicy:" -B 2 -A 3
+```
+
+offers the following content on `podSecurityPolicy`:
+
+```yml
+
+## podSecurityPolicy for fine-grained authorization of pod creation and updates
+podSecurityPolicy:
+  # Specifies whether a pod security policy should be created
+  enabled: false
+
+```
+Apart from the surprise of the unexpected objects there is nothing new to be found here and we can straight up convert them by adding the PodSecurityPolicy, the Role and RoleBinding:
 
 ```sh
 echo '    podsecuritypolicy:
@@ -601,41 +602,11 @@ echo 'hull:
   objects:
     podsecuritypolicy:
       dashboard:
-        enabled: true' > ../configs/psp.yaml
-```
-
-and it is added alongside the Role and RoleBinding:
-
-```sh
-helm template -f ../configs/psp.yaml .
+        enabled: true' > ../configs/psp.yaml \
+&& helm template -f ../configs/disable-default-rbac.yaml -f ../configs/psp.yaml .
 ```
 
 ```yml
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  annotations: {}
-  labels:
-    app: kubernetes-dashboard
-    app.kubernetes.io/component: dashboard
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    chart: kubernetes-dashboard-5.2.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-    heritage: Helm
-    release: release-name
-  name: release-name-kubernetes-dashboard-dashboard
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/component: dashboard
-      app.kubernetes.io/instance: release-name
-      app.kubernetes.io/name: kubernetes-dashboard
 ---
 # Source: kubernetes-dashboard/templates/hull.yaml
 apiVersion: policy/v1beta1
@@ -674,37 +645,6 @@ spec:
   - emptyDir
 ---
 # Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  annotations: {}
-  labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-rules: []
----
-# Source: kubernetes-dashboard/templates/hull.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -735,28 +675,6 @@ kind: RoleBinding
 metadata:
   annotations: {}
   labels:
-    app.kubernetes.io/component: default
-    app.kubernetes.io/instance: release-name
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/name: kubernetes-dashboard
-    app.kubernetes.io/part-of: undefined
-    app.kubernetes.io/version: 2.5.0
-    helm.sh/chart: kubernetes-dashboard-5.2.0
-  name: release-name-kubernetes-dashboard-default
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: release-name-kubernetes-dashboard-default
-subjects:
-- kind: ServiceAccount
-  name: release-name-kubernetes-dashboard-default
----
-# Source: kubernetes-dashboard/templates/hull.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  annotations: {}
-  labels:
     app.kubernetes.io/component: psp
     app.kubernetes.io/instance: release-name
     app.kubernetes.io/managed-by: Helm
@@ -773,44 +691,9 @@ subjects:
 - kind: ServiceAccount
   name: release-name-kubernetes-dashboard-default
   namespace: default
----
 ```
 
-## ServiceMonitor
-
-```sh
-echo '    servicemonitor:
-      dashboard:
-        enabled: false
-        endpoints: _HT![ 
-          {{ if (index . "$").Values.hull.config.specific.protocolHttp }}
-          { port: "http" }
-          {{ else }}
-          { port: "https" }
-          {{ end }}
-         ]
-        selector:
-          matchLabels: _HT&dashboard' >> values.yaml
-```
-
-Enable the PSP with this:
-
-```sh
-echo 'hull:
-  objects:
-    servicemonitor:
-      dashboard:
-        enabled: true' > ../configs/servicemonitor.yaml
-```
-
-and it is added alongside the Role and RoleBinding:
-
-```sh
-helm template -f ../configs/servicemonitor.yaml .
-```
-
-```yml
-## Another Wrap Up
+## Wrap Up
 
 The object conversion is done, time to clean up once more.
 
@@ -830,8 +713,22 @@ hull:
       settings: {}
       pinnedCRDs: {}
   objects:
+    servicemonitor:
+      dashboard:
+        enabled: false
+        endpoints: |-
+          _HT![
+            {{ if (index . "$").Values.hull.config.specific.protocolHttp }}
+            { port: "http" }
+            {{ else }}
+            { port: "https" }
+            {{ end }}
+          ]
+        selector:
+          matchLabels: _HT&dashboard
     networkpolicy:
       dashboard:
+        enabled: false
         labels:
           app: _HT!{{- default (index . "$").Chart.Name (index . "$").Values.nameOverride | trunc 63 | trimSuffix "-" -}}
           chart: _HT!{{- printf "%s-%s" (index . "$").Chart.Name (index . "$").Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
@@ -839,6 +736,21 @@ hull:
           heritage: _HT!{{ (index . "$").Release.Service }}
         podSelector:
           matchLabels: _HT&dashboard
+        ingress: |-
+          _HT![
+            { ports:
+              [
+                {
+                  protocol: TCP,
+                  {{ if (index . "$").Values.hull.config.specific.protocolHttp }}
+                  port: "http"
+                  {{ else }}
+                  port: "https"
+                  {{ end }}
+                }
+              ]
+            }
+          ]
     poddisruptionbudget:
       dashboard:
         enabled: false
@@ -900,7 +812,7 @@ hull:
     cp values.yaml values.tutorial-part.yaml
     ```
 
-3. Since there exists a `role` block now in the current `values.full.yaml` and our local `values.yaml` it is required to merge them appropriately now. Otherwise the second `role` key will overwrite the first which is not helpful. To create the final `values.full.yaml` you hence need to do a little more work but you can just copy and paste the following 'one lines' and it should do:
+3. Since there exists a `role` block now in the current `values.full.yaml` and our local `values.yaml` it is required to merge them appropriately. Otherwise the second `role` key will overwrite the first which is not helpful. To create the final `values.full.yaml` you hence need to do a little more work but you can just copy and paste the following 'one line' and it should do:
 
     ```sh
     sed '1,/objects:/d' values.full.yaml > _tmp && sed '/^\s\s\s\srole:/r'<(
@@ -916,5 +828,9 @@ hull:
       echo "            verbs:"
       echo "            - use"
       echo "            resourceNames: _HT![ {{ include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "settings") }} ]"
-    ) -i -- _tmp && cp values.yaml values.full.yaml && sed '/^\s\s\s\srole:/,$d' -i values.full.yaml && cat _tmp >> values.full.yaml && rm _tmp
+    ) -i -- _tmp \
+    && cp values.yaml values.full.yaml \
+    && sed '/^\s\s\s\srole:/,$d' -i values.full.yaml \
+    && cat _tmp >> values.full.yaml \
+    && rm _tmp
     ```
