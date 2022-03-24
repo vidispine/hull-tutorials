@@ -592,7 +592,7 @@ echo '    podsecuritypolicy:
             - podsecuritypolicies
             verbs:
             - use
-            resourceNames: _HT![ {{ include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "settings") }} ]' >> values.yaml
+            resourceNames: _HT![ {{ include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "psp") }} ]' >> values.yaml
 ```
 
 Enable the PSP with this:
@@ -663,7 +663,7 @@ rules:
   - extensions
   - policy/v1beta1
   resourceNames:
-  - release-name-kubernetes-dashboard-settings
+  - release-name-kubernetes-dashboard-psp
   resources:
   - podsecuritypolicies
   verbs:
@@ -701,109 +701,109 @@ The object conversion is done, time to clean up once more.
 
     ```yml
     metrics-server:
-  enabled: false
-hull:
-  config:
-    specific:
-      externalPort: 443
-      protocolHttp: false
-      rbac:
-        clusterReadOnlyRole: false
-        clusterRoleMetrics: true
-      settings: {}
-      pinnedCRDs: {}
-  objects:
-    servicemonitor:
-      dashboard:
-        enabled: false
-        endpoints: |-
-          _HT![
-            {{ if (index . "$").Values.hull.config.specific.protocolHttp }}
-            { port: "http" }
-            {{ else }}
-            { port: "https" }
-            {{ end }}
-          ]
-        selector:
-          matchLabels: _HT&dashboard
-    networkpolicy:
-      dashboard:
-        enabled: false
-        labels:
-          app: _HT!{{- default (index . "$").Chart.Name (index . "$").Values.nameOverride | trunc 63 | trimSuffix "-" -}}
-          chart: _HT!{{- printf "%s-%s" (index . "$").Chart.Name (index . "$").Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
-          release: _HT!{{ (index . "$").Release.Name }}
-          heritage: _HT!{{ (index . "$").Release.Service }}
-        podSelector:
-          matchLabels: _HT&dashboard
-        ingress: |-
-          _HT![
-            { ports:
-              [
-                {
-                  protocol: TCP,
-                  {{ if (index . "$").Values.hull.config.specific.protocolHttp }}
-                  port: "http"
-                  {{ else }}
-                  port: "https"
-                  {{ end }}
+      enabled: false
+    hull:
+      config:
+        specific:
+          externalPort: 443
+          protocolHttp: false
+          rbac:
+            clusterReadOnlyRole: false
+            clusterRoleMetrics: true
+          settings: {}
+          pinnedCRDs: {}
+      objects:
+        servicemonitor:
+          dashboard:
+            enabled: false
+            endpoints: |-
+              _HT![
+                {{ if (index . "$").Values.hull.config.specific.protocolHttp }}
+                { port: "http" }
+                {{ else }}
+                { port: "https" }
+                {{ end }}
+              ]
+            selector:
+              matchLabels: _HT&dashboard
+        networkpolicy:
+          dashboard:
+            enabled: false
+            labels:
+              app: _HT!{{- default (index . "$").Chart.Name (index . "$").Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+              chart: _HT!{{- printf "%s-%s" (index . "$").Chart.Name (index . "$").Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
+              release: _HT!{{ (index . "$").Release.Name }}
+              heritage: _HT!{{ (index . "$").Release.Service }}
+            podSelector:
+              matchLabels: _HT&dashboard
+            ingress: |-
+              _HT![
+                { ports:
+                  [
+                    {
+                      protocol: TCP,
+                      {{ if (index . "$").Values.hull.config.specific.protocolHttp }}
+                      port: "http"
+                      {{ else }}
+                      port: "https"
+                      {{ end }}
+                    }
+                  ]
                 }
               ]
-            }
-          ]
-    poddisruptionbudget:
-      dashboard:
-        enabled: false
-        selector:
-          matchLabels: _HT&dashboard
-    podsecuritypolicy:
-      dashboard:
-        enabled: false
-        annotations:
-          seccomp.security.alpha.kubernetes.io/allowedProfileNames: "*"
-        privileged: false
-        fsGroup:
-          rule: RunAsAny
-        runAsUser:
-          rule: RunAsAny
-        runAsGroup:
-          rule: RunAsAny
-        seLinux:
-          rule: RunAsAny
-        supplementalGroups:
-          rule: RunAsAny
-        volumes:
-        - configMap
-        - secret
-        - emptyDir
-        allowPrivilegeEscalation: false
-        hostNetwork: false
-        hostIPC: false
-        hostPID: false
-    rolebinding:
-      psp:
-        enabled: _HT?(index . "$").Values.hull.objects.podsecuritypolicy.dashboard.enabled
-        roleRef:
-          apiGroup: rbac.authorization.k8s.io
-          kind: Role
-          name: _HT^psp
-        subjects:
-        - kind: ServiceAccount
-          namespace: _HT!{{ (index . "$").Release.Namespace }}
-          name: _HT^default
-    role:
-      psp:
-        enabled: _HT?(index . "$").Values.hull.objects.podsecuritypolicy.dashboard.enabled
-        rules:
+        poddisruptionbudget:
+          dashboard:
+            enabled: false
+            selector:
+              matchLabels: _HT&dashboard
+        podsecuritypolicy:
+          dashboard:
+            enabled: false
+            annotations:
+              seccomp.security.alpha.kubernetes.io/allowedProfileNames: "*"
+            privileged: false
+            fsGroup:
+              rule: RunAsAny
+            runAsUser:
+              rule: RunAsAny
+            runAsGroup:
+              rule: RunAsAny
+            seLinux:
+              rule: RunAsAny
+            supplementalGroups:
+              rule: RunAsAny
+            volumes:
+            - configMap
+            - secret
+            - emptyDir
+            allowPrivilegeEscalation: false
+            hostNetwork: false
+            hostIPC: false
+            hostPID: false
+        rolebinding:
           psp:
-            apiGroups:
-            - extensions
-            - policy/v1beta1
-            resources:
-            - podsecuritypolicies
-            verbs:
-            - use
-            resourceNames: _HT![ {{ include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "settings") }} ]
+            enabled: _HT?(index . "$").Values.hull.objects.podsecuritypolicy.dashboard.enabled
+            roleRef:
+              apiGroup: rbac.authorization.k8s.io
+              kind: Role
+              name: _HT^psp
+            subjects:
+            - kind: ServiceAccount
+              namespace: _HT!{{ (index . "$").Release.Namespace }}
+              name: _HT^default
+        role:
+          psp:
+            enabled: _HT?(index . "$").Values.hull.objects.podsecuritypolicy.dashboard.enabled
+            rules:
+              psp:
+                apiGroups:
+                - extensions
+                - policy/v1beta1
+                resources:
+                - podsecuritypolicies
+                verbs:
+                - use
+                resourceNames: _HT![ {{ include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "psp") }} ]
     ```
 
 2. Backup what you did in this tutorial part:
@@ -812,10 +812,11 @@ hull:
     cp values.yaml values.tutorial-part.yaml
     ```
 
-3. Since there exists a `role` block now in the current `values.full.yaml` and our local `values.yaml` it is required to merge them appropriately. Otherwise the second `role` key will overwrite the first which is not helpful. To create the final `values.full.yaml` you hence need to do a little more work but you can just copy and paste the following 'one line' and it should do:
+3. Since there exists a `role` block now in the current `values.full.yaml` and our local `values.yaml` it is required to merge them appropriately. Otherwise the second `role` key will overwrite the first which is not helpful. To create the final `values.full.yaml` you hence need to do a little more work but you can just copy and paste the following 'one liner' and it should do:
 
     ```sh
-    sed '1,/objects:/d' values.full.yaml > _tmp && sed '/^\s\s\s\srole:/r'<(
+    sed '1,/objects:/d' values.full.yaml > _tmp \
+    && sed '/^\s\s\s\srole:/r'<(
       echo "      psp:"
       echo "        enabled: _HT?(index . \"$\").Values.hull.objects.podsecuritypolicy.dashboard.enabled"
       echo "        rules:"
@@ -827,7 +828,7 @@ hull:
       echo "            - podsecuritypolicies"
       echo "            verbs:"
       echo "            - use"
-      echo "            resourceNames: _HT![ {{ include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "settings") }} ]"
+      echo '            resourceNames: _HT![ {{ include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "psp") }} ]'
     ) -i -- _tmp \
     && cp values.yaml values.full.yaml \
     && sed '/^\s\s\s\srole:/,$d' -i values.full.yaml \

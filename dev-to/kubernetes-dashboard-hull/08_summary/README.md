@@ -252,6 +252,7 @@ hull:
             - podsecuritypolicies
             verbs:
             - use
+            resourceNames: _HT![ {{ include "hull.metadata.fullname" (dict "PARENT_CONTEXT" (index . "$") "COMPONENT" "psp") }} ]
       default:
         rules:
           secrets:
