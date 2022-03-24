@@ -1,1 +1,0 @@
-{{ .Release.Namespace }}/{{ include "hull.metadata.fullname" (dict "PARENT_CONTEXT" $ "COMPONENT" "addheaders") }}
