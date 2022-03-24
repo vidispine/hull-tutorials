@@ -12,13 +12,13 @@ Before getting started with creating a real-life HULL based Helm chart step-by-s
 
 ## Chart design with Helm
 
-Kubernetes objects are typically defined as YAML files and submitting these YAML files to the Kubernetes API (for example via [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) commands) will create them as entities in the Kubernetes cluster. An application normally will consist of multiple objects such as Deployments, ConfigMaps, Ingresses and so on. Helm expects all the YAML files it needs to deploy to be created in the `/templates` folder of a Helm chart which is to be deployed.
+Kubernetes objects are typically defined as YAML files and submitting these YAML files to the Kubernetes API (for example via [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) commands) will create them as entities in the Kubernetes cluster. An application normally will consist of multiple objects such as Deployments, ConfigMaps, Ingresses and so on. Helm expects all the YAML files it needs to deploy to be created in the [`/templates` folder](https://helm.sh/docs/chart_template_guide/getting_started/)  of a Helm chart which is to be deployed.
 
 Building a Helm chart now starts at defining which Kubernetes objects need to be created and which means to adapt them need to be provided in order to be able to run your application under a variety of conditions. Helm charts need to be deployable to different environments such as development, staging or production where different endpoints, credentials, resource sizings etc. all need to be configurable. Or simply think about cloud versus on premise systems where different rules apply in terms of networking, load balancing and scaling. All these aspects need to be tweakable in your applications Helm chart if your application is intended for wide-spread usability.
 
-With plain Helm, technically all objects that may be created under a certain scenario need to be scaffolded in the `/templates` folder in form of Kubernetes YAML files. To exactly control the logic of which files need to be deployed and which values need to be modified in a particular system, Helm integrates a templating language (Go templating in this case). Using templating expressions in the Kubernetes YAML files it becomes possible to influence the templating logic and produce valid Kubernetes YAML files for a particular scenario (given that the scenario was considered when designing the chart). 
+With plain Helm, technically all objects that may be created under a certain scenario need to be scaffolded in the `/templates` folder in form of Kubernetes YAML files. To exactly control the logic of which files need to be deployed and which values need to be modified in a particular system, Helm integrates a templating language ([Go templating in this case](https://helm.sh/docs/chart_template_guide/function_list/)). Using templating expressions in the Kubernetes YAML files it becomes possible to influence the templating logic and produce valid Kubernetes YAML files for a particular scenario (given that the scenario was considered when designing the chart).
 
-The external source for controling the templating logic is in the first step the so-called `values.yaml` file which is contained in each Helm chart. It serves multiple purposes in reality:
+The external source for controling the templating logic is in the first step the so-called [`values.yaml` file](https://helm.sh/docs/chart_template_guide/values_files/) which is contained in each Helm chart. It serves multiple purposes in reality:
 - provide reasonable defaults that should satisfy most system needs → defaulting 
 - provide an overview of the configuration options a particular Helm chart aims to implement → documentation purpose
 
@@ -44,7 +44,7 @@ The most positive aspects of the above outlined approach is full flexibility in 
 - single objects with a combination of multiple configuration values (n:1)
 - multiple objects with combination of multiple configuration values (n:n)
 
-Basically anything is possible but must be explicitly realized by writing the templating logic. Each Helm chart has in that sense its own individual API which can be tailored towards the usage of the application. 
+Basically anything is possible but must be explicitly realized by writing the templating logic - even the most simple 1:1 projections. Each Helm chart has in that sense its own individual API which can be tailored towards the usage of the application. 
 
 ### The Bad
 
@@ -58,11 +58,11 @@ As seen there is a significant amount of manual caretaking required when develop
 
 #### Intransparency
 
-From the perspective of someone who is proficient with Kubernetes and knows the application wrapped in the Helm Chart, it is often unclear how to achieve the desired Kubernetes object configuration without inspection of the mappings between `values.yaml` and the templates. In this sense, each Helm chart has its own unique interface which requires analysis to understand the effects configuration changes in `values.yaml` have on the templates. The documentation of this interface, the `values.yaml` comments, often lack in explaining the effects that setting a specific property has on the generated templates. Meanwhile certain conventions have been established that can be found in multiple charts but there is no guarantee that an identical named property in `values.yaml` will have the same effect in different charts.
+From the perspective of someone who is proficient with Kubernetes it is often unnecessarily unclear how to achieve the desired Kubernetes object configuration without inspection of the mappings between `values.yaml` and the templates. In this sense, each Helm chart has its own unique API which requires analysis to understand the effects configuration changes in `values.yaml` have on the templates. The documentation of this interface, the `values.yaml` comments, often lack in explaining the effects that setting a specific property has on the generated templates. Meanwhile certain conventions have been established that can be found in multiple charts but there is no guarantee that an identical named property in `values.yaml` will have the same effect in different charts.
 
 ## What is the difference when using HULL?
 
-The HULL library provides a single common interface to specifying Kubernetes objects within Helm Charts. The interface itself is based on the Kubernetes API schema itself which is integrated as a JSON schema in the HULL chart. Since all objects are defined directly in the values.yaml under the `hull` key there is no need to create and maintain custom template files when creating objects with HULL, everything happens in the `values.yaml`.
+[The HULL library Helm chart](https://github.com/vidispine/hull) provides a single common interface to specifying Kubernetes objects within Helm Charts. The interface itself is based on the Kubernetes API schema itself which is integrated as a JSON schema in the HULL chart. Since all objects are defined directly in the values.yaml under the `hull` key there is no need to create and maintain custom template files when creating objects with HULL, everything happens in the `values.yaml`.
 
 The following diagram sketches how the `myapp` Helm chart would be built and processed when using HULL:
 
@@ -76,15 +76,15 @@ This means you bascially have the same toolset available as with the regular Hel
 
 The strengths of the HULL based approach are:
 
-- having less work when creating or maintaing a larger number of Helm charts since HULL based charts reduce the boilerplating of template files close to a minimum. Only model what you need to model explicitly saves time and effort in chart creation.
+- having less work when creating or maintaing a larger number of Helm charts since HULL based charts reduce the 'boilerplating' of template files to a minimum. Only explicitly model what you actually want or need to model explicitly saves time and effort in chart creation.
 
-- giving the chart users the full flexibility to configure all aspects of any Kubernetes objects right away without having to patch an existing Helm chart. 
+- giving the chart users the full flexibility to configure all aspects of any Kubernetes objects right away without having to patch an existing Helm chart.
 
 - providing convenience features that simplify common tasks in the context of Helm chart creation. Automatic creation of extensive metadata is done without additional effort and including external files is done within a few lines of configuration.
 
 So whenever you either maintain many not overly complex Helm charts and want to have a fully flexible, maintanable, documented and common interface to all of them, HULL may be the right choice for you.
 
-If on the other hand you manage a single or small number of Helm chart(s) for your company to be deployed to a limited number of environments you might not benefit as much from building charts around HULL though because the benefit pays of when you scale chart creation. 
+If on the other hand you manage a single or small number of Helm chart(s) for your company to be deployed to a limited number of environments you might not benefit as much from building charts around HULL though because the benefit pays of when you have to scale the chart creation process.
 
 ## Wrap Up
-Thanks for reading and hoping this sparked your interest. If you'd like to please proceed with the tutorial on chart building with HULL where the most popular `ingress-nginx` Helm chart is being 'reinterpreted' using HULL to showcase its applicability to real life use cases!
+Thanks for reading and hoping this sparked your interest. If you'd like to please proceed with the tutorial on chart building with HULL where the popular [`kubernetes-dashboard` Helm chart](https://artifacthub.io/packages/helm/k8s-dashboard/kubernetes-dashboard) is being 'reinterpreted' using HULL to showcase its applicability to real life use cases!

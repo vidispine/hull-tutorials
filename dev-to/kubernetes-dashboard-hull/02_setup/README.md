@@ -79,10 +79,9 @@ _tplvalues.tpl  clusterrolebinding-metrics.yaml  deployment.yaml                
 
 ## Setting up a HULL Chart
 
-Good, now proceed by creating a new empty HULL based Helm chart.  [The steps are documented here](https://github.com/vidispine/hull/blob/main/hull/doc/setup.md)
-but you will create it from scratch here to understand what is needed.
+Good, now proceed by creating a new empty HULL based Helm chart.  [The steps are documented here](https://github.com/vidispine/hull/blob/main/hull/doc/setup.md) but you will create it from scratch here to understand what is needed.
 
-One way to get started is by using the `helm create` command to create the folder structure for an empty Helm chart. Run this command to create our `kubernetes-dashboard-hull` Helm chart:
+One way to get started is by using the [`helm create`](https://helm.sh/docs/helm/helm_create/#helm) command to create the folder structure for an empty Helm chart. Run this command to create our `kubernetes-dashboard-hull` Helm chart:
 
 ```sh
 helm create kubernetes-dashboard-hull
@@ -144,7 +143,7 @@ Now edit the mandatory `Chart.yaml` which is updated to reflect the original cha
 
 When choosing a HULL version for this, it is recommended that HULLs `major.minor` version must at least match the `kubeVersion` field otherwise the API version of objects created by HULL may be yet unknown to the clusters API version. Each HULL release branch is aligned with a specific Kubernetes version such as `1.21`, `1.22`, `1.23` and so on. The objects that HULL renders out will always be of the latest API version of the given object type that matches the HULL librarys version. So when an API is upgraded from beta to stable in a Kubernetes version jump, the latter HULL version will create objects with the stable API version and the former will create the beta API versioned objects. It is recommended to leave the `kubeVersion` set at `1.21.0` for this example so you will be able to work against any Kubernetes cluster with a version of `1.21.0` or above.
 
-Replace `1.23.3` below with the latest available HULL version (more on versioning in a later article) and match the `kubeVersion` accordingly:
+Replace `1.23.3` below with the [latest available HULL version](https://github.com/vidispine/hull/releases) and match the `kubeVersion` accordingly:
 
 ```sh
 echo 'apiVersion: v2
@@ -173,7 +172,7 @@ sources:
 version: 5.2.0' > Chart.yaml
 ```
 
-Before starting work on the `values.yaml` you should download the HULL library by the Helm way of updating Chart dependencies:
+Before starting work on the `values.yaml` you should download the HULL library by the Helm way of [updating Chart dependencies](https://helm.sh/docs/helm/helm_dependency_update/):
 
 ```sh
 helm dependency update
@@ -300,7 +299,7 @@ should return:
 
 ### Inspecting default RBAC settings
 
-Fantastic, all in place! If everything went right up to here you can take a first look at what HULL does by default in an otherwise unconfigured Helm chart. For this you can have Helm render out the YAMLs to `stdout` where you can study them instead of directly deploying objects to a cluster. `helm template` is the command used for this rendering out. If you have an error complaining about version incompatibility you have to update your Helm installation so that `helm template` runs against a new API version.
+Fantastic, all in place! If everything went right up to here you can take a first look at what HULL does by default in an otherwise unconfigured Helm chart. For this you can have Helm render out the YAMLs to `stdout` where you can study them instead of directly deploying objects to a cluster. [`helm template` is the command used for this rendering](https://helm.sh/docs/helm/helm_template/). If you have an error complaining about version incompatibility you have to update your Helm installation so that `helm template` runs against a new API version.
 
 Go on by templating out what we have in our "empty" chart so far:
 
@@ -600,14 +599,16 @@ spec:
   versionPriority: 100
 ```
 
-Quite a lot of objects, this is because the templating command rendered both the HULL default RBAC objects as well as the `metrics-server` subchart objects. Since we did not explicitly enable the deployment of the `metrics-server` subchart this can be considered a bug, however let us just disable the `metrics-server` chart deployment for this tutorial by typing:
+Hmm, quite a lot of objects. This is because the templating command rendered both the HULL default RBAC objects as well as the `metrics-server` subchart default objects. Since we did not explicitly enable the deployment of the `metrics-server` subchart this may be considered a Helm bug, however let us just disable the `metrics-server` chart deployment for this tutorial by typing:
 
 ```sh
 echo 'metrics-server:
   enabled: false' > values.yaml
 ```
 
-Now the `helm template .` output should only contain the HULL objects which are created by default. You can verify this by entering again:
+Editing the `values.yaml` has the direct effect on the output that `metrics-server` subchart deployment is disabled. Now the `helm template .` output should only contain the HULL objects which are created by default. 
+
+You can verify this by entering again:
 
 ```sh
 helm template .
@@ -669,12 +670,12 @@ subjects:
   name: release-name-kubernetes-dashboard-default
 ```
 
-There is already a lot you can see from this output. One thing you may ask is: why are there already objects created while I haven't even defined anything yet? That's because by default, HULL will render a 'default' set of RBAC objects which you can use and fine-tune for your application. The objects that are automatically created are:
+There is already a lot you can gather from this output. One thing you may ask is: why are there already objects created while I haven't even defined anything yet? That's because by default, HULL will render a 'default' set of RBAC objects which you can use and fine-tune for your application. The objects that are automatically created are:
 - a default ServiceAccount with name `<release-name>-<chart-name>-default` which is preconfigured for all pods as the `serviceAccountName` to use
-- a default Role with name `<release-name>-<chart-name>-default` which initially has no rules but you can add them as needed
+- a default Role with name `<release-name>-<chart-name>-default` which initially has no rules but you can easily add them as needed
 - a default RoleBinding with name `<release-name>-<chart-name>-default` that connects the `<release-name>-<chart-name>-default` Role with the `<release-name>-<chart-name>-default` ServiceAccount
 
-This is like a RBAC bootstrap you can build upon easily - but you may have different needs so if this setup does not fit your usecase, you can disable this default set of RBAC objects and specify different RBAC objects more tailored to your needs. The investigation of options for RBAC configuration are the subject of an upcoming tutorial in this series.
+This is like RBAC bootstraping which you can build upon easily - but you may have different needs so if this setup does not fit your usecase, you can disable this default set of RBAC objects and specify different RBAC objects more tailored to your needs. The investigation of options for RBAC configuration are the subject of an upcoming tutorial in this series.
 
 However, while using RBAC is the default with HULL you can also optionally turn off the rendering of RBAC objects all together if that is what you want (of course not recommended :) ). HULL offers the following chart global switch to opt out of RBAC and if `false` RBAC related objects will not be rendered anymore:
 
@@ -689,7 +690,7 @@ hull:
 
 Another standout aspect here is the autogenerated metadata for all objects which adheres to the [best practice Kubernetes metadata definition](https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/) and [Helm's recommendation on the subject matter](https://helm.sh/docs/chart_best_practices/labels/#standard-labels). Using HULL you get this default metadata created without you having to do anything and on top of this it is easy to [enrich all objects or objects of a particular type or just individual objects with metadata even further](https://github.com/vidispine/hull/tree/main/hull#advanced-example) which is also covered in the remainder of this tutorial. 
 
-For example, check the `metadata` block of the ServiceAccount that was rendered:
+For example, check out the `metadata` block of the ServiceAccount that was rendered:
 
 ```yml
 ---
@@ -709,10 +710,10 @@ metadata:
   name: release-name-kubernetes-dashboard-default
 ```
 
-Autogenerating standard metadata and being able to define inheritable metadata is a convenience feature that enforces uniformity of objects and thus operations on them.
+Autogenerating standard metadata and being able to define inheritable metadata is a convenience feature that enforces uniformity of objects and thus simplifies operations on them.
 
 ## Wrap up
 
-That's it for Part 2, Part 3 looks at ConfigMaps and Secrets and you will add your first custom objects to the `kubernetes-dashboard-hull` Helm chart! You can check out the complete code created so far as the outcome of this Part 2 [here](https://github.com/vidispine/hull-tutorials/tree/test/dev-to/hull/02_setup).
+That's it for Part 2, Part 3 looks at ConfigMaps and Secrets and you will add your first custom objects to the `kubernetes-dashboard-hull` Helm chart! You can check out the complete code created so far as the outcome of this Part 2 [here](https://github.com/vidispine/hull-tutorials/tree/test/dev-to/kubernetes-dashboard-hull/02_setup).
 
-Thanks a lot for reading!
+Thanks a lot for reading! Hope to see you in Part 3!
