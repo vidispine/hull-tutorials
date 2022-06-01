@@ -294,7 +294,7 @@ Now here one of or maybe the major strength of HULL comes into play: setting any
 
 > _if this value is provided in `values.yaml` do insert it here 'as is' in the template_
 
-Using HULL all of the shown code blocks can be ignored for our conversion because we can configure the properties without any additional required action at configuration/deployment time if needed. No additional PR needed to make them configurable, they are always accessible if changing them is required.
+Using HULL all of the shown code blocks can be ignored for our conversion because we can configure the properties without any additional required action at configuration/deployment time if needed. No additional pull request needed to make them configurable, they are always accessible if changing them is required.
 
 ### Automated `selector` population
 
@@ -318,7 +318,7 @@ A quick note on the actual main container name which depends on the chart name i
 - name: {{ .Chart.Name }}
 ```
 
-Here the container name will always resorte to `kubernetes-dashboard` but it may also be bound to some other value in the `values.yaml`. Since with HULL the name is derived by the container's key, changing the key in a system specific configuration would require to redefine all the containers content which is not desired. Hence you have to stick with the static defined container name `kubernetes-dashboard` in the HULL version of the chart but normally container names are of minimal importance to the Deployment.
+Here the container name will always resort to `kubernetes-dashboard` but it may also be bound to some other value in the `values.yaml`. Since with HULL the name is derived by the container's key, changing the key in a system specific configuration would require to redefine all the containers content which is not desired. Hence you have to stick with the static defined container name `kubernetes-dashboard` in the HULL version of the chart but normally container names are of minimal importance to the Deployment.
 
 #### The `imagePullSecrets` and `image.registry` feature
 
@@ -332,7 +332,7 @@ Firstly, HULL splits the image definition of containers into three parts which a
 
 where the leading registry part is optional.
 
-Secondly there is a dedicated object type named `registry` where you can specify Docker Registry secrets. With dedicated `registry` fields in the `image` definition and the dedicated `registry` objeccts, HULL by default adds all `registry` objects that are created in HULL as `imagePullSecrets` to the pod specs so images are always pullable even if they are stored on a configured secured registry. If this behavior is undesired, you can disable this feature simply by setting `createImagePullSecretsFromRegistries` to false in the HULL configuration like this:
+Secondly there is a dedicated object type named `registry` where you can specify Docker Registry secrets. With dedicated `registry` fields in the `image` definition and the dedicated `registry` objects, HULL by default adds all `registry` objects that are created in HULL as `imagePullSecrets` to the pod specs so images are always pullable even if they are stored on a configured secured registry. If this behavior is undesired, you can disable this feature simply by setting `createImagePullSecretsFromRegistries` to false in the HULL configuration like this:
 
 ```yml
 hull:
@@ -482,7 +482,7 @@ But there are exceptions, e.g. consider a Helm chart allows to deploy it's appli
 
     > _Disadvantage is that this weakens the likely intention to have the DaemonSet and Deployment as alike as possible since it allows to involuntarily have unwanted differences between them._
 
-  - if you aim for abstraction you should define all the properties that are being referenced from both Deplyoment and DaemonSet under the `hull.config.specific` section and reference the central values.
+  - if you aim for abstraction you should define all the properties that are being referenced from both Deployment and DaemonSet under the `hull.config.specific` section and reference the central values.
 
     > _Disadvantage is that it obfuscates where a properties value comes from more and requires much more effort to set up the chart._
 
@@ -1047,3 +1047,5 @@ and add in the objects things created in the previous tutorial:
 ```sh
 sed '1,/objects:/d' values.full.yaml > _tmp && cp values.yaml values.full.yaml && cat _tmp >> values.full.yaml && rm _tmp
 ```
+
+[Hope to see you in the next tutorial on Services and Ingresses!](https://dev.to/gre9ory/hull-tutorial-06-writing-services-and-ingresses-27ba)

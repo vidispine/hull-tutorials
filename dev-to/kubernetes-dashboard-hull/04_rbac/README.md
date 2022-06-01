@@ -8,7 +8,7 @@ Initially you should copy over our working chart from the last tutorial part to 
 cd ~/kubernetes-dashboard-hull && cp -R 03_configmaps_and_secrets/ 04_rbac && cd 04_rbac/kubernetes-dashboard-hull
 ```
 
-From the `values.full.yaml`, the starting point for this tutorial part, only keep the `hull.config.specific` section for building upon in this chapter, the `hull.objects` section should be cleared for now since you will only add objects relevant to this tutorial section to it. At the end of this tutorial part the newly created objects and newly added `hull.config.specific` properties are added to the `values.full.yaml` with what was already have created. This in turn will then serve as the next tutorial parts starting point.
+From the `values.full.yaml`, the starting point for this tutorial part, only keep the `hull.config.specific` section for building upon in this chapter, the `hull.objects` section should be cleared for now since you will only add objects relevant to this tutorial section to it. At the end of this tutorial part the newly created objects and newly added `hull.config.specific` properties are added to the `values.full.yaml` with what was already created. This in turn will then serve as the next tutorial parts starting point.
 
 To delete the HULL objects from `values.full.yaml` and copy the rest of our `values.yaml` to the `values.yaml` type the following:
 
@@ -139,7 +139,7 @@ serviceAccount:
 
 ```
 
-Now you should have garnered an impression of the ServiceAccount configuration options and relations which is actually atypical way to model this aspect in Helm charts. Let's look at how you can handle the ServiceAccount and RBAC aspects with HULL.
+Now you should have garnered an impression of the ServiceAccount configuration options and relations which is actually a typical way to model this aspect in Helm charts. Let's look at how you can handle the ServiceAccount and RBAC aspects with HULL.
 
 A word in advance: while it is useful to omit rendering of the `default` ServiceAccount, Role and RoleBinding objects for the most part of this tutorial it does not make sense to do this when checking the RBAC configuration options that do involve them. Therefore during this turorial section the `-f ../configs/disable-default-rbac.yaml` parameter is not being set and thus the `default` RBAC objects and ServiceAccount are rendered. For the next tutorial part add the switch again to reduce output.
 
@@ -199,7 +199,7 @@ echo 'hull:
 && helm template -f ../configs/default-sa.yaml .
 ```
 
-and you'll see the the charts `default` ServiceAccount being used for the pod(actually all pods if there were more and they were setup in the same way):
+and you'll see the the charts `default` ServiceAccount being used for the pod (actually all pods if there were more and they were setup in the same way):
 
 ```yml
 ---
@@ -469,7 +469,7 @@ In terms of choosing the name for a ServiceAccount to be created and used in the
 
 #### Specifying unique and non-default dynamic ServiceAccounts
 
-To create a dynamic name (with pattern `<chart-name>-<release-name>-<component-name>`) it is required to apply a transformation on the `serviceAccountName` on the individual pods to include the dynamic prefix in the rendered result like in this example:
+To create a dynamic name (with pattern `<release-name>-<chart-name>-<component-name>`) it is required to apply a transformation on the `serviceAccountName` on the individual pods to include the dynamic prefix in the rendered result like in this example:
 
 ```sh
 echo 'hull:
@@ -566,7 +566,7 @@ As you can see the name of the created ServiceAccount `name: release-name-kubern
 
 #### Specifying non-default static ServiceAccounts
 
-The other alternative is to create a completely static ServiceAccount name (without the `<chart-name>-<release-name>-` prefix) and use this for the pod(s). For this you do not need the `makefullname`/`_HT^` transformation of the pods `serviceAccountName` to use the name as is but you additionally need add the `staticName: true` property to the ServiceAccount objects definition as in this example:
+The other alternative is to create a completely static ServiceAccount name (without the `<release-name>-<chart-name>-` prefix) and use this for the pod(s). For this you do not need the `makefullname`/`_HT^` transformation of the pods `serviceAccountName` to use the name as is but you additionally need add the `staticName: true` property to the ServiceAccount objects definition as in this example:
 
 ```sh
 echo 'hull:
@@ -869,7 +869,7 @@ echo '  objects:
             - get' >> values.yaml
 ```
 
-The `services` and `services_proxy` part of this configuration is static mappings to services which are defined in the `metrics-server` subchart, no need to focus on them now. The usage of the `_HT!` transformations is interesting though: utilizing the full power of the `tpl` function an array is dynamically created in the compact flow style `[]` notation and the elements are individually processed. If you remember the part where the Secrets where created there was one with a dynamic name (`certs`) and two where a static name was demanded (`csrf` and `key-holder`). Therefore you can see in the avove specification that the dynamic names are created using the `hull.metadata.fullname` function being called within the `_HT!` `tpl` transformation.
+The `services` and `services_proxy` part of this configuration is static mappings to services which are defined in the `metrics-server` subchart, no need to focus on them now. The usage of the `_HT!` transformations is interesting though: utilizing the full power of the `tpl` function an array is dynamically created in the compact flow style `[]` notation and the elements are individually processed. If you remember the part where the Secrets where created there was one with a dynamic name (`certs`) and two where a static name was demanded (`csrf` and `key-holder`). Therefore you can see in the above specification that the dynamic names are created using the `hull.metadata.fullname` function being called within the `_HT!` `tpl` transformation.
 
 The `hull.metadata.fullname` is also what is called internally when using the HULL transformation `hull.util.transformation.makefullname`/`_HT^`. Here you need to use it directly within the `tpl` function which is however also straightforward since it has a fixed signature of:
 
@@ -2151,4 +2151,4 @@ sed '1,/objects:/d' values.full.yaml > _tmp && cp values.yaml values.full.yaml &
 
 The result of this course can be downloaded [here](https://github.com/vidispine/hull-tutorials/tree/test/dev-to/hull/04_rbac) for reference. 
 
-__See you on the next part of this series hopefully where you take a close look at defining workload objects via HULL. Thanks for reading!__
+__See you on the [next part of this series hopefully where you take a close look at defining workload objects via HULL](https://dev.to/gre9ory/hull-tutorial-05-defining-workload-objects-268l). Thanks for reading!__

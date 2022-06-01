@@ -87,4 +87,4 @@ So whenever you either maintain many not overly complex Helm charts and want to 
 If on the other hand you manage a single or small number of Helm chart(s) for your company to be deployed to a limited number of environments you might not benefit as much from building charts around HULL though because the benefit pays of when you have to scale the chart creation process.
 
 ## Wrap Up
-Thanks for reading and hoping this sparked your interest. If you'd like to please proceed with the tutorial on chart building with HULL where the popular [`kubernetes-dashboard` Helm chart](https://artifacthub.io/packages/helm/k8s-dashboard/kubernetes-dashboard) is being 'reinterpreted' using HULL to showcase its applicability to real life use cases!
+Thanks for reading and hoping this sparked your interest. If you'd like to please [proceed with the tutorial on chart building with HULL](https://dev.to/gre9ory/hull-tutorial-02-setting-up-a-helm-chart-based-on-hull-md2) where the popular [`kubernetes-dashboard` Helm chart](https://artifacthub.io/packages/helm/k8s-dashboard/kubernetes-dashboard) is being 'reinterpreted' using HULL to showcase its applicability to real life use cases!

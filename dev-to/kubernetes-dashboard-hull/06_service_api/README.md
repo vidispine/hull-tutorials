@@ -128,7 +128,7 @@ spec:
 {{- end }}
 ```
 
-Again there is a reference to the `.Values.protocolHttp` property which now exists in the `hull.config.specific` section. The `ports`' `name` and `targetPort` are set dependend on `protocolHttp` while the `externalPort` is centrally defined. Therefore it makes sense to centralize access to `externalPort` under `hull.config.specific`, even more so because the `externalPort` is also accessed when defining the Ingress (more on that later). To do so execute:
+Again there is a reference to the `.Values.protocolHttp` property which now exists in the `hull.config.specific` section. The `ports`' `name` and `targetPort` are set dependent on `protocolHttp` while the `externalPort` is centrally defined. Therefore it makes sense to centralize access to `externalPort` under `hull.config.specific`, even more so because the `externalPort` is also accessed when defining the Ingress (more on that later). To do so execute:
 
 ```sh
 sed '/^\s\s\s\sspecific/r'<(
@@ -186,7 +186,7 @@ As previously highlighted, the `selector` `matchLabels` for workloads are automa
 - `app.kubernetes.io/instance: release-name`
 - `app.kubernetes.io/name: kubernetes-dashboard`
 
-The Service object `selector`'s in HULL follow the same construction principle, so this means that any Service whose key is identical to a workload object instance the `selector` will match and the Service will front the pods of the workload. For our example, if you define either a Deployment, DaemonSet or StatefulSet with key `dashboard`, any Service object with the same key `dashboard` will match and pose as the Service object to the pods on the network level. This is what you want to achieve here, a Service for the `dashboard` Deployment. On a side note, for Jobs the `selector` property is omitted automatically by HULL because in this case the `selector` handling of Jobs is internally managed by Kubernetes.
+The Service object's `selector`'s in HULL follow the same construction principle, so this means that any Service whose key is identical to a workload object instance the `selector` will match and the Service will front the pods of the workload. For our example, if you define either a Deployment, DaemonSet or StatefulSet with key `dashboard`, any Service object with the same key `dashboard` will match and pose as the Service object to the pods on the network level. This is what you want to achieve here, a Service for the `dashboard` Deployment. On a side note, for Jobs the `selector` property is omitted automatically by HULL because in this case the `selector` handling of Jobs is internally managed by Kubernetes.
 
 So if you leave out the `selector` specification you will automatically have the default `selector` created but if you want to model the `selector` property yourself you can overwrite it explicitly. A use case for this is e.g. the creation of an additional headless Service for StatefulSets or any other more finegrained controlling of Service to Pod matching. For this there also exists a HULL transformation, the `hull.util.transformation.selector` or short `_HT&`, which will be put to use later on. 
 
@@ -690,4 +690,4 @@ So to finish this quickly:
     sed '1,/objects:/d' values.full.yaml > _tmp && cp values.yaml values.full.yaml && cat _tmp >> values.full.yaml && rm _tmp
     ```
 
-Thanks for taking part and hope to see you in the next tutorial part as well!
+Thanks for taking part and hope to see you [in the next tutorial part on advanced object configuration](https://dev.to/gre9ory/hull-tutorial-07-configuring-advanced-objects-1jbi) as well!

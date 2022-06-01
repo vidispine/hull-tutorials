@@ -714,6 +714,6 @@ Autogenerating standard metadata and being able to define inheritable metadata i
 
 ## Wrap up
 
-That's it for Part 2, Part 3 looks at ConfigMaps and Secrets and you will add your first custom objects to the `kubernetes-dashboard-hull` Helm chart! You can check out the complete code created so far as the outcome of this Part 2 [here](https://github.com/vidispine/hull-tutorials/tree/test/dev-to/kubernetes-dashboard-hull/02_setup).
+That's it for Part 2, [Part 3 looks at ConfigMaps and Secrets](https://dev.to/gre9ory/hull-tutorial-03-integrating-configmaps-and-secrets-47o1) and you will add your first custom objects to the `kubernetes-dashboard-hull` Helm chart! You can check out the complete code created so far as the outcome of this Part 2 [here](https://github.com/vidispine/hull-tutorials/tree/test/dev-to/kubernetes-dashboard-hull/02_setup).
 
 Thanks a lot for reading! Hope to see you in Part 3!

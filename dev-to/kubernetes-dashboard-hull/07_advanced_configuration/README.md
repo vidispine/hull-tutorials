@@ -835,3 +835,5 @@ The object conversion is done, time to clean up once more.
     && cat _tmp >> values.full.yaml \
     && rm _tmp
     ```
+
+Thanks again, only [the wrap up of everything and summary](https://dev.to/gre9ory/hull-tutorial-08-wrapping-up-with-a-summary-and-analysis-4b27) left in this tutorial series. 
